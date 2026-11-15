@@ -29,6 +29,18 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]          # the tree (cwd of every archive recipe)
 BUILD = os.environ.get('UNIXNU_IPSW_BUILD') or '24A446'
+# The reviewed fixtures are 24A446 (iPadOS 27). This device builds 21H461
+# (iPadOS 17), and no fixture has been generated for it yet, so fall back to the
+# reviewed set with a loud warning rather than refusing to compile at all: the
+# point of this build is to prove the driver compiles and links against this
+# kernel, and the vtable slot layout is what that tests. The addresses inside are
+# still 24A446 addresses, so a kernel built this way must not be expected to call
+# any original method correctly - regenerate the fixtures from 21H461 before
+# trusting a run (drivers/QcomDwc3/INTEGRATION.md section 4).
+FIXTURE = os.environ.get('UNIXNU_USB_FIXTURE') or BUILD
+if not (Path(__file__).resolve().with_name(f'usb-xdci-{FIXTURE}.json')).is_file():
+    FIXTURE = '24A446'
+    print(f'USB: WARNING no usb-xdci-{BUILD}.json; using the 24A446 fixtures for a compile test only')
 OUT = ROOT / 'build/qcom-dwc3'
 OUT.mkdir(parents=True, exist_ok=True)
 DEVICE = Path(os.environ.get('UNIXNU_DEVICE') or ROOT)
@@ -118,8 +130,8 @@ XDCI_MACROS = {179: 'XDCI_KEEP_CONFIGURATIONS', 227: 'XDCI_DESIRED_POWER', 267: 
                275: 'XDCI_CONTROLLER_RESET', 277: 'XDCI_PERIODIC_USAGE', 278: 'XDCI_PERIODIC_SET'}
 XHCI_MACROS = {188: 'XHCI_DESIRED_POWER', 315: 'XHCI_READ64', 317: 'XHCI_WRITE64'}
 
-xdci = fixture(f'usb-xdci-{BUILD}.json')
-xhci = fixture(f'usb-xhci-{BUILD}.json')
+xdci = fixture(f'usb-xdci-{FIXTURE}.json')
+xhci = fixture(f'usb-xhci-{FIXTURE}.json')
 (OUT / 'OriginalUsbXdciABI.h').write_text(abi_header(xdci, 'AppleUSBXDCI', XDCI_BASE, XDCI_MACROS))
 (OUT / 'OriginalUsbXhciABI.h').write_text(abi_header(xhci, 'AppleUSBXHCI', XHCI_BASE, XHCI_MACROS))
 print(f'USB: OriginalUsbXdciABI.h ({len(xdci["slots"])} slots) and OriginalUsbXhciABI.h ({len(xhci["slots"])} slots) '
