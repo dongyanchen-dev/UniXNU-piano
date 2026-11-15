@@ -1,8 +1,8 @@
 diff --git a/uefi/uefi/pianoPkg/Library/DeviceBootManagerLib/DeviceBootManager.c b/uefi/uefi/pianoPkg/Library/DeviceBootManagerLib/DeviceBootManager.c
-index c33f959..51c0755 100644
+index c33f959..fef43d8 100644
 --- a/uefi/uefi/pianoPkg/Library/DeviceBootManagerLib/DeviceBootManager.c
 +++ b/uefi/uefi/pianoPkg/Library/DeviceBootManagerLib/DeviceBootManager.c
-@@ -139,6 +139,43 @@ DeviceBootManagerBeforeConsole (
+@@ -139,6 +139,52 @@ DeviceBootManagerBeforeConsole (
    return NULL;
  }
  
@@ -13,6 +13,14 @@ index c33f959..51c0755 100644
 +// the first command never completes. This is the same controller moments
 +// earlier, with payload.img freshly read through it, so the two can be
 +// compared field by field.
++//
++//
++// Report the UFS controller while it is still the one UEFI was driving.
++//
++// Print() only reaches ConOut, and the firmware's memory log keeps DEBUG()
++// alone, so this uses DEBUG with EFI_D_ERROR - the level the rest of the boot
++// path already logs at - which makes the dump readable with
++// "fastboot oem debuglog" + "get_staged" while the menu is up.
 +//
 +STATIC
 +VOID
@@ -25,28 +33,29 @@ index c33f959..51c0755 100644
 +  volatile UINT32  *Utrd;
 +
 +  Ufs = (volatile UINT32 *)(UINTN)0x1D84000;
-+  Print (L"piano: ufs cap=%08x ver=%08x memcfg=%08x\r\n",
-+         Ufs[0x00 / 4], Ufs[0x08 / 4], Ufs[0x300 / 4]);
-+  Print (L"piano: ufs hcs=%08x hce=%08x is=%08x ie=%08x\r\n",
-+         Ufs[0x30 / 4], Ufs[0x34 / 4], Ufs[0x20 / 4], Ufs[0x24 / 4]);
-+  Print (L"piano: ufs utrl=%08x/%08x rsr=%08x db=%08x\r\n",
-+         Ufs[0x54 / 4], Ufs[0x50 / 4], Ufs[0x60 / 4], Ufs[0x58 / 4]);
-+  Print (L"piano: ufs utmrl=%08x/%08x tmrsr=%08x uic=%08x/%08x/%08x\r\n",
-+         Ufs[0x74 / 4], Ufs[0x70 / 4], Ufs[0x80 / 4],
-+         Ufs[0x94 / 4], Ufs[0x98 / 4], Ufs[0x9C / 4]);
++  DEBUG ((EFI_D_ERROR, "piano: ufs cap=%08x ver=%08x memcfg=%08x hcs=%08x\n",
++          Ufs[0x00 / 4], Ufs[0x08 / 4], Ufs[0x300 / 4], Ufs[0x30 / 4]));
++  DEBUG ((EFI_D_ERROR, "piano: ufs hce=%08x is=%08x ie=%08x db=%08x\n",
++          Ufs[0x34 / 4], Ufs[0x20 / 4], Ufs[0x24 / 4], Ufs[0x58 / 4]));
++  DEBUG ((EFI_D_ERROR, "piano: ufs utrl=%08x/%08x rsr=%08x\n",
++          Ufs[0x54 / 4], Ufs[0x50 / 4], Ufs[0x60 / 4]));
++  DEBUG ((EFI_D_ERROR, "piano: ufs utmrl=%08x/%08x tmrsr=%08x\n",
++          Ufs[0x74 / 4], Ufs[0x70 / 4], Ufs[0x80 / 4]));
++  DEBUG ((EFI_D_ERROR, "piano: ufs uic cmd=%08x arg1=%08x arg2=%08x arg3=%08x\n",
++          Ufs[0x90 / 4], Ufs[0x94 / 4], Ufs[0x98 / 4], Ufs[0x9C / 4]));
 +
 +  List = ((UINT64)Ufs[0x54 / 4] << 32) | Ufs[0x50 / 4];
 +  if (List != 0) {
 +    Utrd = (volatile UINT32 *)(UINTN)List;
-+    Print (L"piano: ufs utrd0 %08x %08x %08x %08x %08x %08x %08x %08x\r\n",
-+           Utrd[0], Utrd[1], Utrd[2], Utrd[3], Utrd[4], Utrd[5], Utrd[6], Utrd[7]);
++    DEBUG ((EFI_D_ERROR, "piano: ufs utrd %08x %08x %08x %08x %08x %08x %08x %08x\n",
++            Utrd[0], Utrd[1], Utrd[2], Utrd[3], Utrd[4], Utrd[5], Utrd[6], Utrd[7]));
 +  }
 +}
 +
  EFI_DEVICE_PATH_PROTOCOL**
  EFIAPI
  DeviceBootManagerAfterConsole ()
-@@ -173,6 +210,8 @@ DeviceBootManagerAfterConsole ()
+@@ -173,6 +219,8 @@ DeviceBootManagerAfterConsole ()
    // twenty-second window made every attempt a race with the enumeration.
    PianoFastbootWaitPayload (180000);
  
