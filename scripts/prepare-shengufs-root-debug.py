@@ -28,16 +28,13 @@ NEW_BRINGUP = """  if (!hostBringUp (&why)) {
     uint64_t utrl = hc ? ((uint64_t (read32 (hc, 0x54)) << 32) | read32 (hc, 0x50)) : 0;
     uint32_t gfsr = gHost.smmu ? read32 (gHost.smmu, 0x48) : 0;
     uint32_t fsr = gHost.cb ? read32 (gHost.cb, 0x58) : 0;
-    extern "C" volatile uint32_t native_usb_stats[54];
     panic ("NATIVE_UFS root: bring-up failed: %s\\n"
-           "usb ok=%u stage=%d id=%08x\\n"
            "hcs=%08x ulss=%u hce=%08x is=%08x db=%08x rsr=%08x\\n"
            "ver=%08x cap=%08x memcfg=%08x ie=%08x utmrba=%08x utmrsr=%08x\\n"
            "utrl=%llx dma=%llx ocs=%02x polls=%u dbSeen=%x isSeen=%x\\n"
            "cmd n=%u type=%02x op=%02x lun=%02x rsp=%08x proto=%u\\n"
            "smmu smr=%08x s2cr=%08x cbar=%08x sctlr=%08x fault g=%08x cb=%08x",
-           why, native_usb_stats[3], (int) native_usb_stats[0], native_usb_stats[1],
-           hcs, (hcs >> 8) & 0x3, hce, isReg, dbReg, rsrReg,
+           why, hcs, (hcs >> 8) & 0x3, hce, isReg, dbReg, rsrReg,
            read32 (hc, 0x08), read32 (hc, 0x00), read32 (hc, 0x300),
            read32 (hc, 0x24), read32 (hc, 0x70), read32 (hc, 0x80),
            (unsigned long long) utrl, (unsigned long long) gRootDiagnostic.dma,
