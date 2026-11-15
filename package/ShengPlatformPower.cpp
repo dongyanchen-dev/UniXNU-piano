@@ -66,6 +66,18 @@ static const OSMetaClass *lookup(const char *text)
 
 extern "C" void sheng_pmgr_run(void)
 {
+  // The USB driver's archive is only pulled into the kernel image if something
+  // references it, and a weak reference does not make the linker extract a
+  // member either: this call is the strong one that does. It runs before the
+  // storage driver, so its stage is readable even when UFS stops the boot.
+  {
+    extern "C" bool qcom_dwc3_bring_up(void);
+    extern "C" volatile uint32_t native_usb_stats[54];
+    const bool usbOk = qcom_dwc3_bring_up();
+    native_usb_stats[3] = usbOk ? 1u : 0u;
+    printf("USB: bring-up %u stage=%d id=%08x\n", usbOk ? 1u : 0u,
+           (int)native_usb_stats[0], native_usb_stats[1]);
+  }
   unsigned mode = 0;
   if (!PE_parse_boot_argn("sheng-pmgr", &mode, sizeof(mode)) || !mode) return;
   sheng_pmgr_observation[15] = mode;
