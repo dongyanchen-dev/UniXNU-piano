@@ -215,6 +215,9 @@ jobs:
           # Firmware already put the stream in bypass; the kernel performs no
           # SMMU store at all and only reads the entry back.
           python3 ../device/scripts/prepare-shengufs-smmu-readonly.py out
+          # The device asks for a power mode change (UPMCRS) and the UTP does
+          # not process commands until the host completes it.
+          python3 ../device/scripts/prepare-shengufs-power-mode.py out
           python3 ../device/scripts/prepare-shengufs-root-debug.py out
           for h in $(find out -path '*ShengUfs*' -name SmmuTakeover.h); do
             grep -n 'kUfsSmmuMapBytes = 0x100000' "$h" | head -2
