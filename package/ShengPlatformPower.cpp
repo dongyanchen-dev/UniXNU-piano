@@ -75,8 +75,14 @@ extern "C" void sheng_pmgr_run(void)
     extern "C" volatile uint32_t native_usb_stats[54];
     const bool usbOk = qcom_dwc3_bring_up();
     native_usb_stats[3] = usbOk ? 1u : 0u;
-    printf("USB: bring-up %u stage=%d id=%08x\n", usbOk ? 1u : 0u,
-           (int)native_usb_stats[0], native_usb_stats[1]);
+    // A panic, not a printf: the storage driver panics later and its console
+    // output starts from a cleared screen, so anything printed before it is gone
+    // by the time a photo is taken. This build exists to read the USB stage, and
+    // the panic screen is the one channel that survives.
+    panic ("USB: ok=%u stage=%d gsnpsid=%08x\n"
+           "rails=%08x pcs=%08x ltssm=%08x role=%08x",
+           usbOk ? 1u : 0u, (int)native_usb_stats[0], native_usb_stats[1],
+           native_usb_stats[9], native_usb_stats[33], native_usb_stats[37], native_usb_stats[44]);
   }
   unsigned mode = 0;
   if (!PE_parse_boot_argn("sheng-pmgr", &mode, sizeof(mode)) || !mode) return;
