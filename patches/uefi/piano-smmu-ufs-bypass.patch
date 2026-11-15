@@ -1,49 +1,56 @@
 diff --git a/uefi/uefi/pianoPkg/Library/DeviceBootManagerLib/DeviceBootManager.c b/uefi/uefi/pianoPkg/Library/DeviceBootManagerLib/DeviceBootManager.c
-index c33f959..2018a91 100644
+index c33f959..51c0755 100644
 --- a/uefi/uefi/pianoPkg/Library/DeviceBootManagerLib/DeviceBootManager.c
 +++ b/uefi/uefi/pianoPkg/Library/DeviceBootManagerLib/DeviceBootManager.c
-@@ -139,6 +139,36 @@ DeviceBootManagerBeforeConsole (
+@@ -139,6 +139,43 @@ DeviceBootManagerBeforeConsole (
    return NULL;
  }
  
 +//
-+// Turn the SMMU off for the OS that starts next.
++// Report the UFS controller while it is still the one UEFI was driving.
 +//
-+// The UFS stream's own S2CR cannot be rewritten here - a single store resets
-+// the board - so this variant takes the coarser route: clear SCR0.SMMUEN, which
-+// makes every client bypass the SMMU. Physical addresses then reach memory
-+// unchanged, which is what the controller hands it anyway.
-+//
-+// Stream 0x60 is the UFS host (ufshc@1d84000 iommus = <&apps_smmu 0x60 0>).
-+// This runs after the payload has been read from the partition.
++// Every measurement so far came from the state after ExitBootServices, where
++// the first command never completes. This is the same controller moments
++// earlier, with payload.img freshly read through it, so the two can be
++// compared field by field.
 +//
 +STATIC
 +VOID
-+PianoSmmuUfsBypass (
++PianoUfsDump (
 +  VOID
 +  )
 +{
-+  volatile UINT32  *Smmu;
-+  UINT32            Scr0;
++  volatile UINT32  *Ufs;
++  UINT64            List;
++  volatile UINT32  *Utrd;
 +
-+  Smmu = (volatile UINT32 *)(UINTN)0x15000000;
-+  Scr0 = Smmu[0x00 / 4];                    // GR0_sCR0
-+  Print (L"piano: scr0 was %08x\r\n", Scr0);
++  Ufs = (volatile UINT32 *)(UINTN)0x1D84000;
++  Print (L"piano: ufs cap=%08x ver=%08x memcfg=%08x\r\n",
++         Ufs[0x00 / 4], Ufs[0x08 / 4], Ufs[0x300 / 4]);
++  Print (L"piano: ufs hcs=%08x hce=%08x is=%08x ie=%08x\r\n",
++         Ufs[0x30 / 4], Ufs[0x34 / 4], Ufs[0x20 / 4], Ufs[0x24 / 4]);
++  Print (L"piano: ufs utrl=%08x/%08x rsr=%08x db=%08x\r\n",
++         Ufs[0x54 / 4], Ufs[0x50 / 4], Ufs[0x60 / 4], Ufs[0x58 / 4]);
++  Print (L"piano: ufs utmrl=%08x/%08x tmrsr=%08x uic=%08x/%08x/%08x\r\n",
++         Ufs[0x74 / 4], Ufs[0x70 / 4], Ufs[0x80 / 4],
++         Ufs[0x94 / 4], Ufs[0x98 / 4], Ufs[0x9C / 4]);
 +
-+  Smmu[0x00 / 4] = Scr0 & ~1U;              // SMMUEN = 0: every client bypasses
-+  __asm__ volatile ("dsb sy" ::: "memory");
-+
-+  Print (L"piano: scr0 now %08x\r\n", Smmu[0x00 / 4]);
++  List = ((UINT64)Ufs[0x54 / 4] << 32) | Ufs[0x50 / 4];
++  if (List != 0) {
++    Utrd = (volatile UINT32 *)(UINTN)List;
++    Print (L"piano: ufs utrd0 %08x %08x %08x %08x %08x %08x %08x %08x\r\n",
++           Utrd[0], Utrd[1], Utrd[2], Utrd[3], Utrd[4], Utrd[5], Utrd[6], Utrd[7]);
++  }
 +}
 +
  EFI_DEVICE_PATH_PROTOCOL**
  EFIAPI
  DeviceBootManagerAfterConsole ()
-@@ -173,6 +203,8 @@ DeviceBootManagerAfterConsole ()
+@@ -173,6 +210,8 @@ DeviceBootManagerAfterConsole ()
    // twenty-second window made every attempt a race with the enumeration.
    PianoFastbootWaitPayload (180000);
  
-+  PianoSmmuUfsBypass ();
++  PianoUfsDump ();
 +
    // UniXNU owns the boot menu when the board builds it into the volume: it
    // publishes the payload volume, offers its entries and starts XNU. It only
