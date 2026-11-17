@@ -28,6 +28,34 @@ import argparse
 import pathlib
 import sys
 
+ANCHOR_BRING = """  gHost.hc = mapPhys (UFS_HC_BASE, UFS_HC_SIZE, gHost.hcMap);
+  if (!gHost.hc) {
+    *why = "controller map";
+    return false;
+  }
+"""
+
+HIB_BRING = """
+  //
+  // Same Hibern8 exit as the probe path, and it has to come before
+  // hostStopQueue: a link parked in Hibern8 never clears the run-stop bit, so
+  // that call would fail first and nothing after it would run.
+  //
+  {
+    uint32_t isNow = read32 (gHost.hc, 0x20);
+    if (!(isNow & 0x400)) { write32 (gHost.hc, 0x20, 0x400); }
+    write32 (gHost.hc, 0x94, 0);
+    write32 (gHost.hc, 0x98, 0);
+    write32 (gHost.hc, 0x9c, 0);
+    write32 (gHost.hc, 0x90, 0x18);
+    for (uint32_t spin = 0; spin < 20000; spin++) {
+      if (read32 (gHost.hc, 0x20) & 0x400) { break; }
+      IODelay (10);
+    }
+    gHiberOk = (read32 (gHost.hc, 0x20) & 0x400) ? (read32 (gHost.hc, 0x98) & 0xff) : 0xff;
+  }
+"""
+
 ANCHOR_HC = """  if (!hc) {
     panic ("NATIVE_UFS adopt: controller map failed");
   }
@@ -156,6 +184,8 @@ def main() -> int:
             text = text.replace(ANCHOR_ADOPT, ANCHOR_ADOPT + POWER, 1)
         if ANCHOR_HC in text:
             text = text.replace(ANCHOR_HC, ANCHOR_HC + HIB, 1)
+        if ANCHOR_BRING in text:
+            text = text.replace(ANCHOR_BRING, ANCHOR_BRING + HIB_BRING, 1)
         text = text.replace(ANCHOR, ANCHOR + POWER, 1)
         if PANIC_OLD not in text or ARGS_OLD not in text:
             print(f"  !! {path}: panic anchor not found (run after prepare-shengufs-power-mode.py)", file=sys.stderr)
