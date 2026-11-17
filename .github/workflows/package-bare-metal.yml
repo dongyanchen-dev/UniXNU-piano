@@ -228,6 +228,12 @@ jobs:
           # GDSCs up and carry their values in the panic (this runs after
           # power-mode, whose panic line it extends).
           python3 ../device/scripts/prepare-shengufs-phy-power.py out
+          # The device arrives in UFS-PowerDown and every LU answers NOT
+          # READY; the START STOP UNIT that wakes it was gated on level 5/9.
+          python3 ../device/scripts/prepare-shengufs-wake-device.py out
+          for h in $(find out -name NativeUfs.cpp); do
+            grep -n 'level == 4 || level == 5 || level == 9' "$h" | head -1
+          done
           for h in $(find out -name NativeUfs.cpp); do
             grep -n 'gdsc=%08x phygdsc=%08x' "$h" | head -1
           done
