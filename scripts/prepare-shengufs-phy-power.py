@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Power the UFS PHY back up before the kernel takes the controller over.
+"""Power the UFS PHY back up, and put both GDSCs in the panic that follows.
 
 The tablet panics in hostBringUp with
 
@@ -9,17 +9,17 @@ The tablet panics in hostBringUp with
     is=00000000 db=00000001 rsr=00000001
     pmc ok=0 gear tx/rx=0/0 lanes=0/0
 
-The controller reports ready (HCS low nibble 0xf) but the UniPro link sits at
-Gear 0 with zero lanes, so the doorbell is never fetched. The firmware reads
-the payload from the very same UFS partition (its own UFSDxe installs two
-DiskIo handles), so the hardware is fine while the firmware owns it: what is
-missing is the PHY after hand-over. UFSDxe drops GCC_UFS_MEM_PHY_GDSC when it
-stops, and nothing in ShengUfs turns it back on - the driver assumes it adopts
-a live link.
+HCS says the controller is ready, so the UniPro link is what went away: Gear 0
+with zero lanes means the PHY is unpowered, and the doorbell is never fetched.
+The firmware reads the payload from this same UFS partition through its own
+UFSDxe, so the hardware is fine while the firmware owns it - UFSDxe drops
+GCC_UFS_MEM_PHY_GDSC when it hands over and ShengUfs was written to adopt a
+live link, never to power one.
 
-SM8750's GDSCs are votable: SW_OVERRIDE is bit 2 (not bit 1) and PWR_ON is
-bit 16 (not bit 31). Report both GDSCs, then bring them up and poll for PWR_ON,
-so the next boot says whether the PHY was the missing piece.
+SM8750's GDSCs are votable: SW_OVERRIDE is bit 2 and PWR_ON is bit 16.
+
+A printf before the panic is not enough - panic clears the screen - so the two
+register values travel in the panic line itself.
 
 usage: prepare-shengufs-phy-power.py <build tree root>
 SPDX-License-Identifier: BSD-2-Clause-Patent
@@ -37,11 +37,11 @@ ANCHOR = """static bool hostBringUp (const char **why)
 """
 
 POWER = """  //
-  // UFSDxe powers the PHY down when the firmware hands the controller over, and
-  // nothing turns it back on, so the link arrives at Gear 0 and every command
-  // times out (db stays set, IS stays clear, pmc fails). Bring both GDSCs up
-  // before touching the controller, and print them either way so a boot states
-  // whether that was the missing piece.
+  // UFSDxe powers the PHY down when the firmware hands the controller over and
+  // nothing turns it back on, so the link arrives at Gear 0: the doorbell is
+  // never fetched, IS stays clear and PMC fails. Bring both GDSCs up before the
+  // controller is touched; the values travel in the panic below because panic
+  // clears the screen and a printf here would be lost.
   //
   {
     OSSharedPtr<IOMemoryMap> gccMap, phyMap;
@@ -49,15 +49,15 @@ POWER = """  //
     uintptr_t phy = mapPhys (GCC_BASE + 0x9e000, 0x1000, phyMap);
     uint32_t ctrl = gcc ? read32 (gcc, GCC_UFS_PHY_GDSCR - 0x77000) : 0xffffffffU;
     uint32_t phyG = phy ? read32 (phy, 0) : 0xffffffffU;
-    printf ("NATIVE_UFS phy: gdsc=%08x phygdsc=%08x\\n", ctrl, phyG);
-    // SM8750 GDSCs are votable: bit2 SW_OVERRIDE, bit0 SW_COLLAPSE, bit16 PWR_ON.
+    gGdscReport = ctrl;
+    gPhyGdscReport = phyG;
     if (phy && phyG != 0xffffffffU && !(phyG & (1U << 16))) {
       write32 (phy, 0, (phyG | (1U << 2)) & ~1U);
       for (uint32_t spin = 0; spin < 20000; spin++) {
         if (read32 (phy, 0) & (1U << 16)) { break; }
         IODelay (10);
       }
-      printf ("NATIVE_UFS phy: phygdsc after=%08x\\n", read32 (phy, 0));
+      gPhyGdscReport = read32 (phy, 0);
     }
     if (gcc && ctrl != 0xffffffffU && !(ctrl & (1U << 16))) {
       uint32_t off = GCC_UFS_PHY_GDSCR - 0x77000;
@@ -66,10 +66,34 @@ POWER = """  //
         if (read32 (gcc, off) & (1U << 16)) { break; }
         IODelay (10);
       }
-      printf ("NATIVE_UFS phy: gdsc after=%08x\\n", read32 (gcc, off));
+      gGdscReport = read32 (gcc, off);
     }
   }
 """
+
+DECL = """// Reported by the panic below: the PHY is the suspect when the link is at Gear 0.
+static uint32_t gGdscReport = 0xeeeeeeeeU, gPhyGdscReport = 0xeeeeeeeeU;
+
+"""
+
+PANIC_OLD = '''    panic ("NATIVE_UFS adopt: TEST UNIT READY lun0\\n"
+           "ocs=%x resp=%02x scsi=%02x\\n"
+           "phys=%llx hcs=%08x->%08x smmu idx/bank=%08x cbar=%08x\\n"
+           "is=%08x db=%08x rsr=%08x\\n"
+           "rsp=%08x %08x",
+           t.ocs, t.response, t.scsi, phys, hcsBefore, read32 (hc, 0x30), smmuReport[0], smmuReport[1],
+           read32 (hc, 0x20), read32 (hc, 0x58), read32 (hc, 0x60), getBe32 (rsp0), getBe32 (rsp0 + 4));'''
+
+PANIC_NEW = '''    panic ("NATIVE_UFS adopt: TEST UNIT READY lun0\\n"
+           "ocs=%x resp=%02x scsi=%02x\\n"
+           "phys=%llx hcs=%08x->%08x smmu idx/bank=%08x cbar=%08x\\n"
+           "is=%08x db=%08x rsr=%08x\\n"
+           "gdsc=%08x phygdsc=%08x\\n"
+           "rsp=%08x %08x",
+           t.ocs, t.response, t.scsi, phys, hcsBefore, read32 (hc, 0x30), smmuReport[0], smmuReport[1],
+           read32 (hc, 0x20), read32 (hc, 0x58), read32 (hc, 0x60),
+           gGdscReport, gPhyGdscReport,
+           getBe32 (rsp0), getBe32 (rsp0 + 4));'''
 
 
 def main() -> int:
@@ -82,14 +106,19 @@ def main() -> int:
         if "ShengUfs" not in str(path):
             continue
         text = path.read_text()
-        if "NATIVE_UFS phy: gdsc=" in text:
+        if "gPhyGdscReport" in text:
             continue
         if ANCHOR not in text:
-            print(f"  !! {path}: anchor not found", file=sys.stderr)
+            print(f"  !! {path}: hostBringUp anchor not found", file=sys.stderr)
             continue
-        path.write_text(text.replace(ANCHOR, ANCHOR + POWER, 1))
+        text = text.replace(ANCHOR, DECL + ANCHOR + POWER, 1)
+        if PANIC_OLD not in text:
+            print(f"  !! {path}: panic anchor not found", file=sys.stderr)
+            return 1
+        text = text.replace(PANIC_OLD, PANIC_NEW, 1)
+        path.write_text(text)
         patched += 1
-        print(f"  {path}: GDSC reported and powered before bring-up")
+        print(f"  {path}: GDSC powered and reported in the panic")
 
     if not patched:
         print("  !! phy power not installed", file=sys.stderr)
