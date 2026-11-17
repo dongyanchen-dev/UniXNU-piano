@@ -199,6 +199,13 @@ jobs:
           # cannot retrain it, which is the panic 'pmc ok=0 gear tx/rx=0/0
           # lanes=0/0'. Adopt the firmware's link, as ShengUfs was written to.
           # python3 ../device/scripts/prepare-shengufs-host-reset.py out
+          # The firmware powers the UFS PHY down on hand-over: the link
+          # arrives at Gear 0 with zero lanes and every command times out.
+          # Report both GDSCs and bring them up before the controller.
+          python3 ../device/scripts/prepare-shengufs-phy-power.py out
+          for h in $(find out -name NativeUfs.cpp); do
+            grep -n 'NATIVE_UFS phy: gdsc=' "$h" | head -1
+          done
           # Leave the SMMU untouched and send the first command from the firmware's
           # own request list: writing S2CR resets this SoC even in bypass.
           python3 ../device/scripts/prepare-shengufs-adopt-nosmmu.py out
