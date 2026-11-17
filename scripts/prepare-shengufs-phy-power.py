@@ -71,10 +71,10 @@ POWER = """  //
   }
 """
 
-DECL = """// Reported by the panic below: the PHY is the suspect when the link is at Gear 0.
-static uint32_t gGdscReport = 0xeeeeeeeeU, gPhyGdscReport = 0xeeeeeeeeU;
-
-"""
+DECL = """
+// Reported by the level-4 panic: when the link sits at Gear 0 the PHY is the
+// suspect, and panic() clears the screen so a printf before it is lost.
+static uint32_t gGdscReport = 0xeeeeeeeeU, gPhyGdscReport = 0xeeeeeeeeU;"""
 
 PANIC_OLD = """           "pmc ok=%u gear tx/rx=%u/%u lanes=%u/%u\\n"
            "rsp=%08x %08x","""
@@ -103,10 +103,15 @@ def main() -> int:
         text = path.read_text()
         if "gPhyGdscReport" in text:
             continue
+        GLOBAL = """static UfsRootDiagnostics gRootDiagnostic;"""
+        if GLOBAL not in text:
+            print(f"  !! {path}: gRootDiagnostic declaration not found", file=sys.stderr)
+            continue
+        text = text.replace(GLOBAL, GLOBAL + DECL, 1)
         if ANCHOR not in text:
             print(f"  !! {path}: hostBringUp anchor not found", file=sys.stderr)
             continue
-        text = text.replace(ANCHOR, DECL + ANCHOR + POWER, 1)
+        text = text.replace(ANCHOR, ANCHOR + POWER, 1)
         if PANIC_OLD not in text or ARGS_OLD not in text:
             print(f"  !! {path}: panic anchor not found (run after prepare-shengufs-power-mode.py)", file=sys.stderr)
             return 1
