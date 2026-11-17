@@ -28,6 +28,11 @@ import argparse
 import pathlib
 import sys
 
+ANCHOR_ADOPT = """void NativeUfs::adoptAndRead (unsigned level)
+{
+  OSSharedPtr<IOMemoryMap> hcMap;
+"""
+
 ANCHOR = """static bool hostBringUp (const char **why)
 {
   if (gHost.poisoned) {
@@ -108,9 +113,13 @@ def main() -> int:
             print(f"  !! {path}: gRootDiagnostic declaration not found", file=sys.stderr)
             continue
         text = text.replace(GLOBAL, GLOBAL + DECL, 1)
-        if ANCHOR not in text:
+        if ANCHOR not in text or ANCHOR_ADOPT not in text:
             print(f"  !! {path}: hostBringUp anchor not found", file=sys.stderr)
             continue
+        # probe=4 goes through adoptAndRead, which never calls hostBringUp, so the
+        # power-up has to sit in both entries.
+        if ANCHOR_ADOPT in text:
+            text = text.replace(ANCHOR_ADOPT, ANCHOR_ADOPT + POWER, 1)
         text = text.replace(ANCHOR, ANCHOR + POWER, 1)
         if PANIC_OLD not in text or ARGS_OLD not in text:
             print(f"  !! {path}: panic anchor not found (run after prepare-shengufs-power-mode.py)", file=sys.stderr)
