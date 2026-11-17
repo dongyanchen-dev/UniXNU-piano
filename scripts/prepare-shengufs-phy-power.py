@@ -28,6 +28,11 @@ import argparse
 import pathlib
 import sys
 
+ANCHOR_HC = """  if (!hc) {
+    panic ("NATIVE_UFS adopt: controller map failed");
+  }
+"""
+
 ANCHOR_ADOPT = """void NativeUfs::adoptAndRead (unsigned level)
 {
   OSSharedPtr<IOMemoryMap> hcMap;
@@ -79,20 +84,43 @@ POWER = """  //
 DECL = """
 // Reported by the level-4 panic: when the link sits at Gear 0 the PHY is the
 // suspect, and panic() clears the screen so a printf before it is lost.
-static uint32_t gGdscReport = 0xeeeeeeeeU, gPhyGdscReport = 0xeeeeeeeeU;"""
+static uint32_t gGdscReport = 0xeeeeeeeeU, gPhyGdscReport = 0xeeeeeeeeU;
+static uint32_t gHiberOk = 0xeeeeeeeeU;"""
+
+HIB = """
+  //
+  // The firmware parks the UniPro link in Hibern8 before it hands over, and with
+  // auto-hibernate off it stays there until DME_HIBERNATE_EXIT: every command
+  // then times out (db stays set, IS stays clear, PMC fails). UIC 0x18, UCCS in
+  // IS bit 10, per RootPower.h's note on 0x17/0x18.
+  //
+  {
+    uint32_t isNow = read32 (hc, 0x20);
+    if (!(isNow & 0x400)) { write32 (hc, 0x20, 0x400); }
+    write32 (hc, 0x94, 0);
+    write32 (hc, 0x98, 0);
+    write32 (hc, 0x9c, 0);
+    write32 (hc, 0x90, 0x18);
+    for (uint32_t spin = 0; spin < 20000; spin++) {
+      if (read32 (hc, 0x20) & 0x400) { break; }
+      IODelay (10);
+    }
+    gHiberOk = (read32 (hc, 0x20) & 0x400) ? (read32 (hc, 0x98) & 0xff) : 0xff;
+  }
+"""
 
 PANIC_OLD = """           "pmc ok=%u gear tx/rx=%u/%u lanes=%u/%u\\n"
            "rsp=%08x %08x","""
 
 PANIC_NEW = """           "pmc ok=%u gear tx/rx=%u/%u lanes=%u/%u\\n"
-           "gdsc=%08x phygdsc=%08x\\n"
+           "gdsc=%08x phygdsc=%08x hib=%02x\\n"
            "rsp=%08x %08x","""
 
 ARGS_OLD = """           gPmcOk, gPmcRead[0], gPmcRead[1], gPmcRead[2], gPmcRead[3],
            getBe32 (rsp0), getBe32 (rsp0 + 4));"""
 
 ARGS_NEW = """           gPmcOk, gPmcRead[0], gPmcRead[1], gPmcRead[2], gPmcRead[3],
-           gGdscReport, gPhyGdscReport,
+           gGdscReport, gPhyGdscReport, gHiberOk,
            getBe32 (rsp0), getBe32 (rsp0 + 4));"""
 
 
@@ -120,6 +148,8 @@ def main() -> int:
         # power-up has to sit in both entries.
         if ANCHOR_ADOPT in text:
             text = text.replace(ANCHOR_ADOPT, ANCHOR_ADOPT + POWER, 1)
+        if ANCHOR_HC in text:
+            text = text.replace(ANCHOR_HC, ANCHOR_HC + HIB, 1)
         text = text.replace(ANCHOR, ANCHOR + POWER, 1)
         if PANIC_OLD not in text or ARGS_OLD not in text:
             print(f"  !! {path}: panic anchor not found (run after prepare-shengufs-power-mode.py)", file=sys.stderr)
