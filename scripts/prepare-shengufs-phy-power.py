@@ -87,6 +87,12 @@ DECL = """
 static uint32_t gGdscReport = 0xeeeeeeeeU, gPhyGdscReport = 0xeeeeeeeeU;
 static uint32_t gHiberOk = 0xeeeeeeeeU;"""
 
+PANIC_CALL_OLD = """    panic ("NATIVE_UFS adopt: TEST UNIT READY lun0"""
+PANIC_CALL_NEW = """    // ocs=0 means the command completed: a CHECK CONDITION here is the device
+    // saying "not started yet", which the generic LUN sweep below answers with a
+    // retry and START STOP UNIT. Only a command that never completed is fatal.
+    if (t.ocs != 0) panic ("NATIVE_UFS adopt: TEST UNIT READY lun0"""
+
 HIB = """
   //
   // The firmware parks the UniPro link in Hibern8 before it hands over, and with
@@ -154,6 +160,8 @@ def main() -> int:
         if PANIC_OLD not in text or ARGS_OLD not in text:
             print(f"  !! {path}: panic anchor not found (run after prepare-shengufs-power-mode.py)", file=sys.stderr)
             return 1
+        if PANIC_CALL_OLD in text:
+            text = text.replace(PANIC_CALL_OLD, PANIC_CALL_NEW, 1)
         text = text.replace(PANIC_OLD, PANIC_NEW, 1)
         text = text.replace(ARGS_OLD, ARGS_NEW, 1)
         path.write_text(text)
