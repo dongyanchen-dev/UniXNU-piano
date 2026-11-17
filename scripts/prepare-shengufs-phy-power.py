@@ -76,24 +76,19 @@ static uint32_t gGdscReport = 0xeeeeeeeeU, gPhyGdscReport = 0xeeeeeeeeU;
 
 """
 
-PANIC_OLD = '''    panic ("NATIVE_UFS adopt: TEST UNIT READY lun0\\n"
-           "ocs=%x resp=%02x scsi=%02x\\n"
-           "phys=%llx hcs=%08x->%08x smmu idx/bank=%08x cbar=%08x\\n"
-           "is=%08x db=%08x rsr=%08x\\n"
-           "rsp=%08x %08x",
-           t.ocs, t.response, t.scsi, phys, hcsBefore, read32 (hc, 0x30), smmuReport[0], smmuReport[1],
-           read32 (hc, 0x20), read32 (hc, 0x58), read32 (hc, 0x60), getBe32 (rsp0), getBe32 (rsp0 + 4));'''
+PANIC_OLD = """           "pmc ok=%u gear tx/rx=%u/%u lanes=%u/%u\\n"
+           "rsp=%08x %08x","""
 
-PANIC_NEW = '''    panic ("NATIVE_UFS adopt: TEST UNIT READY lun0\\n"
-           "ocs=%x resp=%02x scsi=%02x\\n"
-           "phys=%llx hcs=%08x->%08x smmu idx/bank=%08x cbar=%08x\\n"
-           "is=%08x db=%08x rsr=%08x\\n"
+PANIC_NEW = """           "pmc ok=%u gear tx/rx=%u/%u lanes=%u/%u\\n"
            "gdsc=%08x phygdsc=%08x\\n"
-           "rsp=%08x %08x",
-           t.ocs, t.response, t.scsi, phys, hcsBefore, read32 (hc, 0x30), smmuReport[0], smmuReport[1],
-           read32 (hc, 0x20), read32 (hc, 0x58), read32 (hc, 0x60),
+           "rsp=%08x %08x","""
+
+ARGS_OLD = """           gPmcOk, gPmcRead[0], gPmcRead[1], gPmcRead[2], gPmcRead[3],
+           getBe32 (rsp0), getBe32 (rsp0 + 4));"""
+
+ARGS_NEW = """           gPmcOk, gPmcRead[0], gPmcRead[1], gPmcRead[2], gPmcRead[3],
            gGdscReport, gPhyGdscReport,
-           getBe32 (rsp0), getBe32 (rsp0 + 4));'''
+           getBe32 (rsp0), getBe32 (rsp0 + 4));"""
 
 
 def main() -> int:
@@ -112,10 +107,11 @@ def main() -> int:
             print(f"  !! {path}: hostBringUp anchor not found", file=sys.stderr)
             continue
         text = text.replace(ANCHOR, DECL + ANCHOR + POWER, 1)
-        if PANIC_OLD not in text:
-            print(f"  !! {path}: panic anchor not found", file=sys.stderr)
+        if PANIC_OLD not in text or ARGS_OLD not in text:
+            print(f"  !! {path}: panic anchor not found (run after prepare-shengufs-power-mode.py)", file=sys.stderr)
             return 1
         text = text.replace(PANIC_OLD, PANIC_NEW, 1)
+        text = text.replace(ARGS_OLD, ARGS_NEW, 1)
         path.write_text(text)
         patched += 1
         print(f"  {path}: GDSC powered and reported in the panic")
