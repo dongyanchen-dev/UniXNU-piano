@@ -98,6 +98,8 @@ next_action = ["Boot with native-ufs-root=1 and capture the first UFS probe outp
 evidence = [
   { kind = "source", reference = "scripts/prepare-ufs-policies.py", result = "extracts and signs the verified-root policies from the two iPadOS DMG inputs" },
   { kind = "source", reference = "configs/piano_defconfig", result = "storage selections and archive paths the kernel links" },
+  { kind = "source", reference = "scripts/prepare-shengufs-phy-power.py", result = "issues DME_HIBERNATE_EXIT (UIC 0x18, UCCS in IS bit 10) at the head of both entries - adoptAndRead for native-ufs-probe and hostBringUp for native-ufs-root, where it has to precede hostStopQueue - and reports gdsc/phygdsc/hib in the level-4 panic; without it the firmware leaves the link parked in Hibern8 and every command times out with the doorbell stuck" },
+  { kind = "source", reference = "scripts/prepare-shengufs-wake-device.py", result = "lets level 4 through the START STOP UNIT gate that was limited to level 5 and 9, so the adopt probe wakes the part from bCurrentPowerMode 0x33 (UFS-PowerDown) to 0x11 (Active); before it every LU answered NOT READY with ssu still at its initialiser" },
 ]
 
 [[area]]
