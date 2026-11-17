@@ -192,9 +192,13 @@ jobs:
           # The generic BSD panic names neither the stage nor the manifest fact,
           # so a failed root layout is unreadable on a board without serial.
           # Turn each root failure into a panic that prints both.
-          # The ABL's link state never completes our first command: reset and
-          # start the link ourselves, as the vendor UFSDxe patch does.
-          python3 ../device/scripts/prepare-shengufs-host-reset.py out
+          # Do not reset the link from the kernel. The firmware's own UFSDxe
+          # already brought it up: the memory log shows 'Successfully Enabled
+          # UFS Cache Coherency' and then UFSDxe.efi installing two DiskIo
+          # handles. A DME_RESET here tears that link down and DME_LINKSTARTUP
+          # cannot retrain it, which is the panic 'pmc ok=0 gear tx/rx=0/0
+          # lanes=0/0'. Adopt the firmware's link, as ShengUfs was written to.
+          # python3 ../device/scripts/prepare-shengufs-host-reset.py out
           # Leave the SMMU untouched and send the first command from the firmware's
           # own request list: writing S2CR resets this SoC even in bypass.
           python3 ../device/scripts/prepare-shengufs-adopt-nosmmu.py out
