@@ -144,7 +144,9 @@ jobs:
           [build]
           device = "../device"
           jobs = ${{ inputs.jobs }}
-          target = "DEBUG"
+          # RELEASE drops DEBUG_LOCKS, which panics on a non-sleepable RW lock
+          # taken with preemption on (lock_rw.c:1400) right after the root mounts.
+          target = "RELEASE"
           EOF
           ./unixnu defconfig piano_defconfig -D ../device > /tmp/s1.log 2>&1 || { tail -30 /tmp/s1.log | sed 's/^/::error::/'; exit 1; }
           # build-sheng-platform-power.py compiles $TREE/kits/sheng/ShengPlatformPower.cpp,
