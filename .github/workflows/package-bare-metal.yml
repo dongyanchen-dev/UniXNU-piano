@@ -241,19 +241,6 @@ jobs:
             grep -n 'kUfsSmmuMapBytes = 0x100000' "$h" | head -2
             grep -n 'mask == 0' "$h" | head -2
           done
-      - name: root auth
-        working-directory: UniXNU
-        run: |
-          # The ipados window carries no sealed-root signature, so bsd_init's
-          # FSIOC_KERNEL_ROOTAUTH check can never pass and the kernel panics
-          # right after the root is mounted. rd=md0-ufs got past it too, but
-          # the rd argument also changes the root-device lookup and the next
-          # stop was lock_rw.c:1400 on one CPU as well as eight. Short-circuit
-          # that single panic instead, before either kernel pass compiles.
-          python3 ../device/scripts/prepare-xnu-root-auth.py out
-          for f in $(find out -name bsd_init.c); do
-            grep -n 'if (0) panic("rootvp' "$f" | head -1
-          done
       - name: policies
         working-directory: UniXNU
         run: |
@@ -306,6 +293,17 @@ jobs:
       - name: kernel
         working-directory: UniXNU
         run: |
+          # bsd_init refuses a root without a sealed-root signature and the
+          # ipados window has none. The XNU sources under .cache/xnu-work are
+          # unpacked by the build itself, so the first pass exists only to
+          # materialise them; the patch then lands and the second pass is
+          # incremental.
+          ./unixnu build kernel -D ../device -j ${{ inputs.jobs }} > /tmp/s5-pre.log 2>&1 || true
+          python3 ../device/scripts/prepare-xnu-root-auth.py out
+          for f in $(find out -name bsd_init.c); do
+            grep -n 'if (0) panic("rootvp' "$f" | head -1
+          done
+          find out -name 'bsd_init.o' -delete 2>/dev/null || true
           ./unixnu build kernel -D ../device -j ${{ inputs.jobs }} > /tmp/s5.log 2>&1 || { tail -50 /tmp/s5.log | sed 's/^/::error::/'; exit 1; }
           tail -20 /tmp/s5.log
       - name: package
