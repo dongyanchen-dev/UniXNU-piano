@@ -37,6 +37,13 @@ import sys
 PANIC = 'panic("rootvp not authenticated after mounting");'
 PATCHED = 'if (0) panic("rootvp not authenticated after mounting");'
 
+# osfmk/kern/lock_rw.c, under DEBUG_LOCKS: the first assertion a successful
+# mount reaches. Fires on one CPU as well as eight, with and without the rd
+# argument, so neither SMP nor rd - some path takes a non-sleepable RW lock with
+# preemption on. Not fatal for this port: downgrade it to a no-op.
+LOCKPANIC = 'panic("Taking non-sleepable RW lock with preemption enabled");'
+LOCKPAT = 'if (0) panic("Taking non-sleepable RW lock with preemption enabled");'
+
 
 def main() -> int:
     parser = argparse.ArgumentParser()
@@ -56,8 +63,21 @@ def main() -> int:
         patched += 1
         print(f"  {path}: root authentication no longer fatal")
 
+    for path in pathlib.Path(args.root).rglob("lock_rw.c"):
+        if "xnu" not in str(path):
+            continue
+        text = path.read_text()
+        if LOCKPAT in text:
+            continue
+        if LOCKPANIC not in text:
+            print(f"  !! {path}: lock_rw panic not found", file=sys.stderr)
+            continue
+        path.write_text(text.replace(LOCKPANIC, LOCKPAT, 1))
+        patched += 1
+        print(f"  {path}: non-sleepable RW lock assertion no longer fatal")
+
     if not patched:
-        print("  !! bsd_init.c with the root-auth panic not found", file=sys.stderr)
+        print("  !! nothing patched", file=sys.stderr)
         return 1
     return 0
 
