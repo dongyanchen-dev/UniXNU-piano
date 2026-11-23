@@ -193,7 +193,7 @@ limits = ["The ShengPlatformPower instrument is a refusal-first integration, not
 next_action = ["Read the sheng-pmgr=2 output on the first boot and record which slots refuse."]
 evidence = [
   { kind = "source", reference = "package/ShengPlatformPower.cpp", result = "guarded PMGR provider that inherits only the original AON slots" },
-  { kind = "source", reference = "modules/Piano/drivers/ShengPlatformPower/ShengPlatformPower.cpp", result = "component-backed audit, original bindings and late registration of the PMGR archive (now modules/Piano/drivers/ShengPlatformPower)" },
+  { kind = "source", reference = "feeds.toml", result = "ShengPlatformPower is a local driver feed under modules/Piano/drivers/ShengPlatformPower (cloned by the workflow, so not present in a bare checkout); its recipe audits the original bindings and registers the PMGR archive late" },
 ]
 
 [[area]]
