@@ -17,6 +17,7 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 """
 import argparse
 import pathlib
+import re
 import sys
 
 ROOTAUTH_PANIC = 'panic("rootvp not authenticated after mounting");'
@@ -24,8 +25,9 @@ ROOTAUTH_MARKER = 'root-unverified'
 ROOTAUTH_OWNER_GATE = 'if (autherr && !owner_authorized) {'
 
 LOCKPANIC = 'panic("Taking non-sleepable RW lock with preemption enabled");'
-LOCKPAT = 'if (0) panic("Taking non-sleepable RW lock with preemption enabled");'
+LOCKPAT = 'if (0) ' + LOCKPANIC
 LOCK_COUNT = 5
+LOCK_RAW_RE = re.compile(r'(?<!if \(0\) )' + re.escape(LOCKPANIC))
 
 
 def xnu_files(root: pathlib.Path, name: str):
@@ -58,7 +60,7 @@ def apply_or_check_lock(root: pathlib.Path, check: bool) -> None:
         fail("lock_rw.c not found under an xnu tree")
     for path in paths:
         text = path.read_text()
-        raw = text.count(LOCKPANIC)
+        raw = len(LOCK_RAW_RE.findall(text))
         already = text.count(LOCKPAT)
         if raw + already != LOCK_COUNT:
             fail(f"{path}: expected exactly {LOCK_COUNT} lock assertions, found raw={raw} patched={already}")
@@ -72,9 +74,11 @@ def apply_or_check_lock(root: pathlib.Path, check: bool) -> None:
         if already == LOCK_COUNT:
             print(f"  {path}: already has {LOCK_COUNT}/{LOCK_COUNT} lock no-ops")
             continue
-        replaced = text.replace(LOCKPANIC, LOCKPAT)
-        if replaced.count(LOCKPAT) != LOCK_COUNT:
-            fail(f"{path}: replacement count was not exactly {LOCK_COUNT}")
+        # Rewrite every occurrence, not just the first one. The old
+        # text.replace(..., 1) silently skipped the assertion at line 1400.
+        replaced, count = LOCK_RAW_RE.subn(lambda _match: LOCKPAT, text)
+        if count != LOCK_COUNT or replaced.count(LOCKPAT) != LOCK_COUNT:
+            fail(f"{path}: replacement count was {count}, expected exactly {LOCK_COUNT}")
         path.write_text(replaced)
         print(f"  {path}: replaced {LOCK_COUNT}/{LOCK_COUNT} lock assertions")
 
@@ -84,7 +88,7 @@ def main() -> int:
     parser.add_argument("--check", action="store_true", help="validate the formal patches without rewriting sources")
     parser.add_argument("root", help="build output directory holding the fetched tree")
     args = parser.parse_args()
-    root = pathlib.Path(args.root)
+    root = pathlib.Path(args.root).resolve()
     if not root.is_dir():
         fail(f"build tree does not exist: {root}")
     validate_root_auth(root)
