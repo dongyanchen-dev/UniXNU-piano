@@ -1,5 +1,7 @@
 name: package
 on:
+  push:
+    branches: [fix/owner-root-lock-diagnostics]
   workflow_dispatch:
     inputs:
       os:
@@ -152,7 +154,7 @@ jobs:
           cat > unixnu.local.toml <<EOF
           [build]
           device = "../device"
-          jobs = ${{ inputs.jobs }}
+          jobs = ${{ inputs.jobs || '4' }}
           target = "DEBUG"
           EOF
           ./unixnu defconfig piano_defconfig -D ../device > /tmp/s1.log 2>&1 || { tail -30 /tmp/s1.log | sed 's/^/::error::/'; exit 1; }
@@ -286,7 +288,7 @@ jobs:
             exit 1
           fi
           ./unixnu defconfig piano_bootstrap_defconfig -D ../device > /tmp/s4c.log 2>&1 || { tail -30 /tmp/s4c.log | sed 's/^/::error::/'; exit 1; }
-          ./unixnu build kernel -D ../device -j ${{ inputs.jobs }} >> /tmp/s4c.log 2>&1 || { tail -50 /tmp/s4c.log | sed 's/^/::error::/'; exit 1; }
+          ./unixnu build kernel -D ../device -j ${{ inputs.jobs || '4' }} >> /tmp/s4c.log 2>&1 || { tail -50 /tmp/s4c.log | sed 's/^/::error::/'; exit 1; }
           git -C ../device checkout -- board.toml
           mkdir -p "$OUT/tree/build/xnu-prelink"
           # The PMGR audit reads the original kernelcache from a fixed path;
@@ -306,7 +308,7 @@ jobs:
           # lock_rw stays fatal and zz-lock-rw-diagnostics.patch records the
           # caller frames before the assertion; this check must never rewrite
           # the fetched XNU tree in CI.
-          ./unixnu build kernel -D ../device -j ${{ inputs.jobs }} > /tmp/s5.log 2>&1 || { tail -50 /tmp/s5.log | sed 's/^/::error::/'; exit 1; }
+          ./unixnu build kernel -D ../device -j ${{ inputs.jobs || '4' }} > /tmp/s5.log 2>&1 || { tail -50 /tmp/s5.log | sed 's/^/::error::/'; exit 1; }
           python3 ../device/scripts/prepare-xnu-root-auth.py --check out
           for f in $(find out -name lock_rw.c); do
             n=$(grep -o 'panic("Taking non-sleepable RW lock with preemption enabled");' "$f" | wc -l | tr -d ' ')
@@ -350,5 +352,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: piano-ipados-${{ inputs.os }}
+          name: piano-ipados-${{ inputs.os || '17' }}
           path: out/
