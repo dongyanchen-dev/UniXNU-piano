@@ -24,9 +24,9 @@ jobs:
           submodules: recursive
       - uses: actions/checkout@v4
         with:
-          repository: UniXNU/UniXNU
-          # Pinned 2026-11-09: main as of the boot_progress_trace fix.
-          ref: 95ad78129203442c3c14c02336303adbddf8d0a3
+          repository: IssacL04/UniXNU_Enc3l
+          # The SM8750/Pagani catalog carries the five local driver identities selected by board.toml; official UniXNU components.toml does not.
+          ref: a6ff7768bba6b9f285ac4c3e5b2c5d4904a016a3
           path: UniXNU
           fetch-depth: 1
       - uses: actions/checkout@v4
