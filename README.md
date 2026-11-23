@@ -20,9 +20,11 @@ This tree now carries the owner-root route (`root-unverified=1`), the formal
 XNU patch that preserves `autherr` while accepting that argument, and local
 Piano display/input/A830 component registrations. Those owner-root and driver
 changes are candidates until a new device RAM boot records the next screen or
-ramoops line. The USB payload path remains the verified transport: the current
-UniXNU `bootimg.py` has no `embed_payload` consumer, so no partition is flashed
-and the host stages `payload.img` with `fastboot stage`/`fastboot oem ramdisk`.
+ramoops line. The USB payload path remains the transport for this revision:
+the pinned Enc3l `bootimg.py` does implement `embed_payload`, but the pinned
+piano UEFI branch has no `PianoPayloadDxe`, so nothing would point `/chosen
+initrd` at the embedded bytes yet. No partition is flashed; the host stages
+`payload.img` with `fastboot stage`/`fastboot oem ramdisk`.
 
 ## Build
 
