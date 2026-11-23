@@ -30,3 +30,6 @@ phone-shutdown-progress.patch
 phone-bootstrap-tables.patch
 phone-compressor-thrashing.patch
 phone-vm-page-limits.patch
+
+zzz-root-unverified.patch
+zz-lock-rw-diagnostics.patch

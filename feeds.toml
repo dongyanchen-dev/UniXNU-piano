@@ -3,3 +3,37 @@ name = "sm8750"
 kind = "soc"
 git = "https://github.com/IssacL04/UniXNU-sm8750-common.git"
 commit = "feaa135df4763e3c19a155402e6b17b124a12e13"
+
+
+# Local Piano drivers. They are not entries in the official components.toml;
+# registering the source makes the component recipes visible to unixnu status
+# and lets the board select them by their canonical IDs.
+[[source]]
+name = "NativeMobileDisplay"
+kind = "driver"
+local = "modules/Piano/drivers/NativeMobileDisplay"
+
+[[source]]
+name = "Stage7Probe"
+kind = "driver"
+local = "modules/Piano/drivers/Stage7Probe"
+
+[[source]]
+name = "PaganiInput"
+kind = "driver"
+local = "modules/Piano/drivers/PaganiInput"
+
+[[source]]
+name = "PaganiPanel"
+kind = "driver"
+local = "modules/Piano/drivers/PaganiPanel"
+
+[[source]]
+name = "Adreno830"
+kind = "driver"
+local = "modules/Piano/drivers/Adreno830"
+
+[[source]]
+name = "ArmSmmu4K"
+kind = "kit"
+local = "modules/ArmSmmu4K"

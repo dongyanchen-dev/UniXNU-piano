@@ -58,6 +58,15 @@ jobs:
       - name: prep
         run: |
           (cd uefi && chmod +x tools/setup-deps.sh && ./tools/setup-deps.sh) || echo "setup-deps skipped"
+          # The repository records these as submodules for local development;
+          # the GitHub commit also works when a connector-created branch cannot
+          # carry a gitlink, so materialise the exact pinned driver checkouts.
+          if [ ! -d device/modules/Piano/.git ]; then
+            git clone --depth 1 https://github.com/xiaomi-pad-8-pro-development/UniXNU-Piano-Drivers.git device/modules/Piano
+          fi
+          if [ ! -d device/modules/ArmSmmu4K/.git ]; then
+            git clone --depth 1 https://github.com/UniXNU/ArmSmmu4K.git device/modules/ArmSmmu4K
+          fi
           git apply device/patches/uefi/piano-dsc-unixnulib.patch
           # The vendor DisplayDxe panics the firmware (black frame, then a
           # reboot into Android), so stay on ScaledFbDxe and make it publish a
@@ -293,22 +302,16 @@ jobs:
       - name: kernel
         working-directory: UniXNU
         run: |
-          # bsd_init refuses a root without a sealed-root signature and the
-          # ipados window has none. The XNU sources under .cache/xnu-work are
-          # unpacked by the build itself, so the first pass exists only to
-          # materialise them; the patch then lands and the second pass is
-          # incremental.
-          ./unixnu build kernel -D ../device -j ${{ inputs.jobs }} > /tmp/s5-pre.log 2>&1 || true
-          python3 ../device/scripts/prepare-xnu-root-auth.py out
-          for f in $(find out -name bsd_init.c); do
-            grep -n 'if (0) panic("rootvp' "$f" | head -1
-          done
-          for f in $(find out -name lock_rw.c); do
-            grep -n 'if (0) panic("Taking non-sleepable' "$f" | head -1
-          done
-          find out -name 'bsd_init.o' -delete 2>/dev/null || true
+          # Root authentication is handled by patches/xnu/zzz-root-unverified.patch.
+          # lock_rw stays fatal and zz-lock-rw-diagnostics.patch records the
+          # caller frames before the assertion; this check must never rewrite
+          # the fetched XNU tree in CI.
           ./unixnu build kernel -D ../device -j ${{ inputs.jobs }} > /tmp/s5.log 2>&1 || { tail -50 /tmp/s5.log | sed 's/^/::error::/'; exit 1; }
-          tail -20 /tmp/s5.log
+          python3 ../device/scripts/prepare-xnu-root-auth.py --check out
+          for f in $(find out -name lock_rw.c); do
+            n=$(grep -o 'panic("Taking non-sleepable RW lock with preemption enabled");' "$f" | wc -l | tr -d ' ')
+            test "$n" -eq 5 || { echo "expected 5 lock assertions in $f, found $n"; exit 1; }
+          done
       - name: package
         working-directory: UniXNU
         run: |

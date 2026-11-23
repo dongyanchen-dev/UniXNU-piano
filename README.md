@@ -10,9 +10,19 @@
 
 ## State
 
-Experimental, not booted yet. The first goal is XNU's verbose boot log on
-the screen from a RAM boot: `fastboot boot` only, nothing is flashed and
-Android stays as it was.
+The last device-verified image was a RAM boot (`fastboot boot`, with no
+partition written). ShengUfs read the GPT and the SHNGROOT window beginning at
+LBA `55778816`; APFS volume `04769D26-2CA0-4825-B443-E2E5F88300F2` mounted as
+root. The boot then stopped at the first `DEBUG_LOCKS` assertion in
+`lock_rw.c:1400`, `Taking non-sleepable RW lock with preemption enabled`.
+
+This tree now carries the owner-root route (`root-unverified=1`), the formal
+XNU patch that preserves `autherr` while accepting that argument, and local
+Piano display/input/A830 component registrations. Those owner-root and driver
+changes are candidates until a new device RAM boot records the next screen or
+ramoops line. The USB payload path remains the verified transport: the current
+UniXNU `bootimg.py` has no `embed_payload` consumer, so no partition is flashed
+and the host stages `payload.img` with `fastboot stage`/`fastboot oem ramdisk`.
 
 ## Build
 
@@ -27,6 +37,9 @@ Needs macOS with Xcode. From the UniXNU checkout:
 ./unixnu build payload
 ./unixnu bootimg
 fastboot boot <output>/boot/boot.img
+# Current firmware transport (boot manager waits for the staged payload):
+fastboot stage <output>/payload/payload.img
+fastboot oem ramdisk
 ```
 
 See [Build and boot](https://unixnu.com/building).
