@@ -4,7 +4,7 @@ schema_version = 1
 name = "piano"
 soc = "SM8750"
 os_profile = "ipados-17.7.11-21H461"
-summary = "Xiaomi Pad 8 Pro (piano, SM8750) runs iPadOS 17.7.11 from RAM through a Mu-Silicium based UEFI. On the device the kernel reaches userland hand-off: the UFS driver reads the disk (GPT, INQUIRY, 4096-byte blocks), the SHNGROOT window mounts, and the APFS volume 04769D26 becomes the root. What remains is the first DEBUG_LOCKS assertion after mounting and everything past it."
+summary = "Xiaomi Pad 8 Pro (piano, SM8750) boots iPadOS 17.7.11 from RAM through a Mu-Silicium based UEFI. Verified on the device: the UFS driver reads the disk (GPT, INQUIRY, 4096-byte blocks), the SHNGROOT window mounts, and the APFS volume 04769D26 becomes the root. Not verified: the owner-root route and every step after mounting; the last device boot stopped at the first DEBUG_LOCKS assertion, lock_rw.c:1400, after the mount. No partition is written."
 
 [[area]]
 id = "configuration"
