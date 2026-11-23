@@ -37,3 +37,23 @@ local = "modules/Piano/drivers/Adreno830"
 name = "ArmSmmu4K"
 kind = "kit"
 local = "modules/ArmSmmu4K"
+
+[[source]]
+name = "NativePrelink"
+kind = "kit"
+local = "modules/Piano/kits/NativePrelink"
+
+[[source]]
+name = "BootProgress"
+kind = "driver"
+local = "modules/Piano/drivers/BootProgress"
+
+[[source]]
+name = "ShengPlatformPower"
+kind = "driver"
+local = "modules/Piano/drivers/ShengPlatformPower"
+
+[[source]]
+name = "NativeKeyStoreEvents"
+kind = "driver"
+local = "modules/Piano/drivers/NativeKeyStoreEvents"
