@@ -262,7 +262,7 @@ jobs:
           cp "$IPSW/044-76040-038.dmg" "$IPSW/044-76034-038.dmg" .cache/firmware/target-volumes/
           python3 ../device/scripts/prepare-ufs-policies.py --tree "$PWD/$OUT/tree" \
             --inputs "$IPSW" --openssl-prefix "$(brew --prefix openssl@3)" \
-            > /tmp/s4b.log 2>&1 || { tail -50 /tmp/s4b.log | sed 's/^/::error::/'; exit 1; }
+            > /tmp/s4b.log 2>&1 || { echo "::error::ipsw fetch failed: $(grep -inE 'error|failed|fatal|undefined symbols|no such file|not found' /tmp/s4b.log | tail -4 | tr -d '%' | tr '\n' ' ' | cut -c1-900)"; tail -40 /tmp/s4b.log | sed 's/^/::notice::/'; exit 1; }
           tail -10 /tmp/s4b.log
       - name: kernel
         working-directory: UniXNU
@@ -271,7 +271,7 @@ jobs:
           # lock_rw stays fatal and zz-lock-rw-diagnostics.patch records the
           # caller frames before the assertion; this check must never rewrite
           # the fetched XNU tree in CI.
-          ./unixnu build kernel -D ../device -j ${{ inputs.jobs || '4' }} > /tmp/s5.log 2>&1 || { tail -50 /tmp/s5.log | sed 's/^/::error::/'; exit 1; }
+          ./unixnu build kernel -D ../device -j ${{ inputs.jobs || '4' }} > /tmp/s5.log 2>&1 || { echo "::error::kernel failed: $(grep -inE 'error|failed|fatal|undefined symbols|no such file|not found' /tmp/s5.log | tail -4 | tr -d '%' | tr '\n' ' ' | cut -c1-900)"; tail -40 /tmp/s5.log | sed 's/^/::notice::/'; exit 1; }
           python3 ../device/scripts/prepare-xnu-root-auth.py --check out
           for f in $(find out -name lock_rw.c); do
             n=$(grep -o 'panic("Taking non-sleepable RW lock with preemption enabled");' "$f" | wc -l | tr -d ' ')
@@ -280,18 +280,18 @@ jobs:
       - name: package
         working-directory: UniXNU
         run: |
-          ./unixnu build package -D ../device > /tmp/s6.log 2>&1 || { tail -50 /tmp/s6.log | sed 's/^/::error::/'; exit 1; }
+          ./unixnu build package -D ../device > /tmp/s6.log 2>&1 || { echo "::error::package failed: $(grep -inE 'error|failed|fatal|undefined symbols|no such file|not found' /tmp/s6.log | tail -4 | tr -d '%' | tr '\n' ' ' | cut -c1-900)"; tail -40 /tmp/s6.log | sed 's/^/::notice::/'; exit 1; }
           tail -15 /tmp/s6.log
       - name: firmware
         working-directory: UniXNU
         run: |
-          ./unixnu build firmware -D ../device --uefi ../uefi/deps/Mu-Silicium > /tmp/s7.log 2>&1 || { tail -50 /tmp/s7.log | sed 's/^/::error::/'; exit 1; }
+          ./unixnu build firmware -D ../device --uefi ../uefi/deps/Mu-Silicium > /tmp/s7.log 2>&1 || { echo "::error::firmware failed: $(grep -inE 'error|failed|fatal|undefined symbols|no such file|not found' /tmp/s7.log | tail -4 | tr -d '%' | tr '\n' ' ' | cut -c1-900)"; tail -40 /tmp/s7.log | sed 's/^/::notice::/'; exit 1; }
           tail -15 /tmp/s7.log
       - name: payload
         working-directory: UniXNU
         run: |
           # panic_screen needs Mu-Silicium's FrameBufferSerialPortLib/Font.h.
-          ./unixnu build payload -D ../device --uefi ../uefi/deps/Mu-Silicium > /tmp/s8.log 2>&1 || { tail -50 /tmp/s8.log | sed 's/^/::error::/'; exit 1; }
+          ./unixnu build payload -D ../device --uefi ../uefi/deps/Mu-Silicium > /tmp/s8.log 2>&1 || { echo "::error::payload failed: $(grep -inE 'error|failed|fatal|undefined symbols|no such file|not found' /tmp/s8.log | tail -4 | tr -d '%' | tr '\n' ' ' | cut -c1-900)"; tail -40 /tmp/s8.log | sed 's/^/::notice::/'; exit 1; }
           tail -15 /tmp/s8.log
       - name: bootimg
         working-directory: UniXNU
@@ -302,7 +302,7 @@ jobs:
           # it from [device_tree] into device-tree/hardware.dtb.
           ./unixnu bootimg -D ../device --uefi ../uefi/deps/Mu-Silicium \
             --dtb out/piano/ipados-17.7.11-21H461/piano/device-tree/hardware.dtb \
-            --ramdisk none > /tmp/s9.log 2>&1 || { tail -50 /tmp/s9.log | sed 's/^/::error::/'; exit 1; }
+            --ramdisk none > /tmp/s9.log 2>&1 || { echo "::error::bootimg failed: $(grep -inE 'error|failed|fatal|undefined symbols|no such file|not found' /tmp/s9.log | tail -4 | tr -d '%' | tr '\n' ' ' | cut -c1-900)"; tail -40 /tmp/s9.log | sed 's/^/::notice::/'; exit 1; }
           tail -15 /tmp/s9.log
       - name: collect
         if: always()
