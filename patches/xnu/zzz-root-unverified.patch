@@ -1,9 +1,6 @@
 --- a/bsd/kern/bsd_init.c
 +++ b/bsd/kern/bsd_init.c
-@@ -1097,6 +1097,19 @@
- 				native_owner_root_checkpoint(autherr, owner, device);
- 			}
- #endif
+@@ -1100,3 +1100,16 @@
 +			{
 +				// Bring-up: root-unverified=1 accepts a mounted root whose APFS seal was not
 +				// authenticated (the storage windows are published without an owner policy
