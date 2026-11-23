@@ -110,7 +110,7 @@ evidence = [
 [[area]]
 id = "display"
 status = "planned"
-components = ["GopFramebuffer", "Stage7Probe", "NativeMobileDisplay", "PaganiPanel"]
+components = ["GopFramebuffer"]
 paths = ["dts/**", "package/*Gop*", "package/*Display*"]
 inputs = ["UEFI GOP framebuffer handed over by the firmware, panel timing of the Pad 8 Pro and the ktz8866 backlight."]
 configuration = ["CONFIG_XNU_NATIVE_LEGACY_DISPLAY=y and CONFIG_XNU_NATIVE_ADRENO=y; the local Stage7Probe/NativeMobileDisplay/PaganiPanel sources provide the symbols that the old kits/sheng/LegacyDisplayProbe assumption missed.", "[payload].kernel_args keeps offline-legacy-gop=1 while enabling the native display hand-off candidate.", "[adt.chosen.u32] display-scale = 2 and display-rotation = 0."]
@@ -126,7 +126,7 @@ evidence = [
 [[area]]
 id = "input"
 status = "planned"
-components = ["PaganiInput", "PaganiPanel"]
+components = []
 paths = ["modules/Piano/drivers/PaganiInput/**", "modules/Piano/drivers/PaganiPanel/**", "dts/**"]
 inputs = ["Novatek touch controller, the pogo keyboard cover and the volume/power keys of the Pad 8 Pro."]
 configuration = ["board.toml selects PaganiInput and PaganiPanel through local feeds; the existing buttons node remains present.", "The touch/key hardware path is a candidate only until the GitHub-built image runs it."]
@@ -140,7 +140,7 @@ evidence = []
 [[area]]
 id = "gpu"
 status = "planned"
-components = ["Adreno830"]
+components = []
 paths = ["dts/**", "package/*Gpu*", "package/*Adreno*"]
 inputs = ["Adreno 830 GMU/SMMU and the local Piano Adreno830 driver source; firmware inputs are supplied through the component recipe."]
 configuration = ["CONFIG_XNU_NATIVE_ADRENO=y and CONFIG_XNU_NATIVE_ADRENO_ARCHIVE points at build/adreno830/libAdreno830.a; board.toml archives component:Adreno830 and build-piano-gpu.py."]
@@ -223,7 +223,7 @@ evidence = [
 [[area]]
 id = "diagnostics"
 status = "planned"
-components = ["VerifiedRoot", "AppleKeyStoreState", "Stage7Probe"]
+components = ["VerifiedRoot", "AppleKeyStoreState"]
 paths = ["scripts/check-*", "scripts/probe-*", "scripts/audit-*", "scripts/read-*", "scripts/prepare-unixnu-diagnostics.py", "scripts/data/**", "package/tests/**", "package/*Tests*", "package/*Diagnostic*", "package/*Probe*", "package/Boot*", "package/linux-log/**", "unixnu.lock", "patches/xnu/zz-lock-rw-diagnostics.patch", "patches/xnu/zzz-root-unverified.patch"]
 inputs = ["UEFI serial output, the XNU verbose boot log, and the boot_progress_poll weak stub added in d185787."]
 configuration = ["CONFIG_XNU_EARLY_BOOT_PROGRESS is enabled; CONFIG_XNU_BOOT_PROGRESS is not set.", "zz-lock-rw-diagnostics.patch adds backtrace_info_t/backtrace() output before each of the five assertions; zzz-root-unverified.patch logs root-unverified acceptance while preserving autherr.", "The workflow self-check requires exactly five original lock panic strings and refuses partial replacement."]
