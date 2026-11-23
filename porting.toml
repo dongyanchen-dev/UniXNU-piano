@@ -9,7 +9,7 @@ summary = "Xiaomi Pad 8 Pro (piano, SM8750) runs iPadOS 17.7.11 from RAM through
 [[area]]
 id = "configuration"
 status = "implemented"
-components = []
+components = ["ArmCpu", "ArmDTPlatform", "DarwinBoot", "XnuPrelink", "RamBlock", "VirtioMmioBlock", "SoftwareAES", "AppleKeyStoreState", "ShengUfs", "GopFramebuffer", "VerifiedRoot", "PaganiInput", "PaganiPanel", "Stage7Probe", "NativeMobileDisplay", "Adreno830", "BootProgress", "NativeKeyStoreEvents", "QcomGeniSpi", "Sm8750Platform", "NativePrelink", "AdrenoPM4", "ArmSmmu4K"]
 paths = ["board.toml", "feeds.toml", "configs/**", ".gitmodules", ".github/**", ".gitignore", "porting.toml", "README.md"]
 inputs = ["SM8750 SoC support from the OnePlus 13T port (UniXNU-sm8750-common), an iPadOS 17.7.11 (21H461) IPSW, and a UniXNU checkout pinned by the packaging workflow."]
 configuration = ["board.soc_source = sm8750; board.os_profile = ipados-17.7.11-21H461; board.kit = piano; schema_version = 2.", "piano_defconfig enables owner-root audit/trust/cache paths, native UFS/AES/ram/virtio storage, native legacy display and native Adreno archives; the bootstrap defconfig keeps the same link surface with ShengPlatformPower disabled.", "feeds.toml registers the five local Piano drivers (PaganiInput, PaganiPanel, Stage7Probe, NativeMobileDisplay and Adreno830); board.toml selects them and lists their archives.", "[payload] uses root-unverified=1 and the verified 55778816..58069503 iPadOS window. [bootimg] carries no embed_payload key because the pinned UniXNU bootimg.py has no consumer; the payload remains a USB staging artifact."]
