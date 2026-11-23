@@ -276,6 +276,11 @@ jobs:
           for f in $(find out -name lock_rw.c); do
             n=$(grep -o 'panic("Taking non-sleepable RW lock with preemption enabled");' "$f" | wc -l | tr -d ' ')
             test "$n" -eq 5 || { echo "expected 5 lock assertions in $f, found $n"; exit 1; }
+            d=$(grep -c 'lck_rw_non_sleepable_diagnostic' "$f" | tr -d ' ')
+            test "$d" -eq 6 || { echo "expected the diagnostic helper plus 5 call sites in $f, found $d"; exit 1; }
+            if grep -q 'if (0) panic("Taking non-sleepable RW lock' "$f"; then
+              echo "lock assertions in $f were short-circuited; use the formal patch instead"; exit 1
+            fi
           done
       - name: package
         working-directory: UniXNU
