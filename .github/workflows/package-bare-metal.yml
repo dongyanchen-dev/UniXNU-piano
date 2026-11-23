@@ -65,9 +65,13 @@ jobs:
           # carry a gitlink, so materialise the exact pinned driver checkouts.
           if [ ! -d device/modules/Piano/.git ]; then
             git clone --depth 1 https://github.com/xiaomi-pad-8-pro-development/UniXNU-Piano-Drivers.git device/modules/Piano
+            git -C device/modules/Piano fetch --depth 1 origin c0726fb8d7dd60acda40a111e3a4a7f85b3c0a58
+            git -C device/modules/Piano checkout --detach c0726fb8d7dd60acda40a111e3a4a7f85b3c0a58
           fi
           if [ ! -d device/modules/ArmSmmu4K/.git ]; then
             git clone --depth 1 https://github.com/UniXNU/ArmSmmu4K.git device/modules/ArmSmmu4K
+            git -C device/modules/ArmSmmu4K fetch --depth 1 origin 83969cd874503e65997ff7639f7dcf3d0a92cd17
+            git -C device/modules/ArmSmmu4K checkout --detach 83969cd874503e65997ff7639f7dcf3d0a92cd17
           fi
           git apply device/patches/uefi/piano-dsc-unixnulib.patch
           # The vendor DisplayDxe panics the firmware (black frame, then a
