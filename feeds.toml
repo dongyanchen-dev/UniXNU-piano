@@ -54,6 +54,11 @@ kind = "driver"
 local = "modules/Piano/drivers/ShengPlatformPower"
 
 [[source]]
+name = "PaganiDarwinBoot"
+kind = "driver"
+local = "modules/Piano/drivers/PaganiDarwinBoot"
+
+[[source]]
 name = "NativeKeyStoreEvents"
 kind = "driver"
 local = "modules/Piano/drivers/NativeKeyStoreEvents"
