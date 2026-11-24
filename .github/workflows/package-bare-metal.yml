@@ -352,7 +352,16 @@ jobs:
         working-directory: UniXNU
         run: |
           # panic_screen needs Mu-Silicium's FrameBufferSerialPortLib/Font.h.
-          ./unixnu build payload -D ../device --uefi ../uefi/deps/Mu-Silicium > /tmp/s8.log 2>&1 || { echo "::error::payload failed: $(grep -inE 'error|failed|fatal|undefined symbols|no such file|not found' /tmp/s8.log | tail -4 | tr -d '%' | tr '\n' ' ' | cut -c1-900)"; tail -40 /tmp/s8.log | sed 's/^/::notice::/'; exit 1; }
+          ./unixnu build payload -D ../device --uefi ../uefi/deps/Mu-Silicium > /tmp/s8.log 2>&1 || {
+            echo "::error::payload failed: $(grep -inE 'error|failed|fatal|undefined symbols|no such file|not found' /tmp/s8.log | tail -4 | tr -d '%' | tr '\n' ' ' | cut -c1-900)"
+            for f in out/piano/*/*/logs/payload-patch.log out/piano/*/*/logs/payload-seal.log; do
+              [ -f "$f" ] || continue
+              echo "::error::$(basename "$f"): $(tail -3 "$f" | tr '\n' '|' | tr -d '%' | cut -c1-900)"
+              { echo "### $f"; echo '```'; tail -60 "$f"; echo '```'; } >> "$GITHUB_STEP_SUMMARY" 2>/dev/null
+            done
+            tail -40 /tmp/s8.log | sed 's/^/::notice::/'
+            exit 1
+          }
           tail -15 /tmp/s8.log
       - name: bootimg
         working-directory: UniXNU
@@ -384,6 +393,13 @@ jobs:
               echo "### $f"
               echo '```'
               tail -60 "$f" | tr -d '\r'
+              echo '```'
+            done
+            for f in UniXNU/out/piano/*/*/logs/payload-patch.log UniXNU/out/piano/*/*/logs/payload-seal.log; do
+              [ -f "$f" ] || continue
+              echo "### $f"
+              echo '```'
+              tail -60 "$f"
               echo '```'
             done
             echo '### log inventory'

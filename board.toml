@@ -70,7 +70,16 @@ skip_setup_args = ["--no-auto-dim"]
 volume = "UNIXNUPIANO"
 size_mib = 160
 loader = "firmware"
-panic_screen = true
+# BootProgress.c paints the panic message, the last and root stages and the
+# fault registers itself, fed by zzzz-boot-progress-panic-output.patch and
+# zzzzz-root-panic-progress.patch.  The Enc3l entry probe's separate panic
+# screen is off: patch-xnu-entry-probe.py pins the SCTLR/ISB/CPACR sequence at
+# a fixed offset from _start_first_cpu, and this kernel's early progress and
+# bootstrap-table patches move it, so the tool refuses the image with
+# "Require one verified SCTLR/ISB/CPACR entry sequence".  That gate also
+# covers the stage-1/2 bars; BootProgress still reports from arm_init on.
+# Re-enable once the probe learns the new sequence.
+panic_screen = false
 title = "Xiaomi Pad 8 Pro: XNU first boot"
 dram_size = "0x180000000"
 timeout = 600
