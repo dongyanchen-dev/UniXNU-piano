@@ -16,12 +16,19 @@ LBA `55778816`; APFS volume `04769D26-2CA0-4825-B443-E2E5F88300F2` mounted as
 root. The boot then stopped at the first `DEBUG_LOCKS` assertion in
 `lock_rw.c:1400`, `Taking non-sleepable RW lock with preemption enabled`.
 
-This tree now carries the owner-root route (`root-unverified=1`), the formal
-XNU patch that preserves `autherr` while accepting that argument, and local
-Piano display/input/A830 component registrations. Those owner-root and driver
-changes are candidates until a new device RAM boot records the next screen or
-ramoops line. The GitHub workflow builds and packages this stack (run 45342205030,
-artifact `piano-ipados-17`, 156 MB); no device boot has used it yet.
+This tree carries the owner-root route as series patches: `root-unverified=1`
+with `zzz-root-unverified.patch` keeping the `autherr` gate, the five-site
+`lock_rw` backtrace diagnostic, `initproc-no-panic=1` with its `kern_exit.c`
+patch, the SystemOS volume retry, and the local Piano display/input/A830
+component registrations. All of them are candidates until a device RAM boot
+records the next line.
+
+The workflow builds and packages the stack. Run `45396130152` (commit `97f9534`)
+is the first green build with the USB console: the kernel step now asserts that
+the linked `mach.development.bcm2837.unstripped.noctf` defines
+`piano_usb_console_start`, and it reported `assertions=5 diagnostics=6` for the
+prepared `lock_rw.c`. Run `45342205030` uploaded the 156 MB `piano-ipados-17`
+artifact. No device boot has used either image yet.
 
 `panic_screen` is off in this revision. `BootProgress.c` paints the panic
 message and registers itself, while the Enc3l entry probe refuses the image
@@ -58,5 +65,22 @@ fastboot boot <output>/boot/boot.img
 fastboot stage <output>/payload/payload.img
 fastboot oem ramdisk
 ```
+
+## Watching the boot
+
+`scripts/PianoUsbConsole.c` starts from `bsd_init` (patched in by
+`patches/xnu/piano-usb-console.patch`) and presents the SM8750 DWC3 as one
+CDC-ACM port, VID `0x1209` / PID `0x0001`. Everything the kernel prints is
+copied to it while the host keeps the port open, so the boot no longer has to
+be read off the panel:
+
+- macOS: `/dev/cu.usbmodem*` (`screen /dev/cu.usbmodemXXXX 115200`)
+- Windows: a `COMx` port (PuTTY, or `putty -serial COMx`)
+- Linux: `/dev/ttyACM*`
+
+Open it before the payload boots. If the boot stops at `lock_rw.c:1400`, the
+diagnostic patch prints `Taking non-sleepable RW lock at <function>:<line>`
+and the eight caller frames that follow are the answer to which path took a
+non-sleepable lock with preemption enabled.
 
 See [Build and boot](https://unixnu.com/building).
