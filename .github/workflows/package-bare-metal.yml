@@ -249,10 +249,13 @@ jobs:
           for h in $(find out -name NativeUfs.cpp); do
             grep -n 'gdsc=%08x phygdsc=%08x' "$h" | head -1
           done
-          for h in $(find out -path '*ShengUfs*' -name SmmuTakeover.h); do
+          found=0
+          for h in $(find out \( -path '*ShengUfs*' -o -path '*NativeUfs*' \) -name SmmuTakeover.h); do
+            found=1
             grep -n 'kUfsSmmuMapBytes = 0x100000' "$h" | head -2
             grep -n 'mask == 0' "$h" | head -2
           done
+          test "$found" -eq 1 || { echo 'SmmuTakeover.h not found in the UFS source tree'; exit 1; }
       - name: policies
         working-directory: UniXNU
         run: |

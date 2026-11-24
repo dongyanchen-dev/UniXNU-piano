@@ -75,7 +75,7 @@ def main() -> int:
 
     patched = 0
     for path in pathlib.Path(args.root).rglob("RootCommands.h"):
-        if "ShengUfs" not in str(path):
+        if not any(name in str(path) for name in ("ShengUfs", "NativeUfs")):
             continue
         text = path.read_text()
         if "gWindowBaseLba" in text:
@@ -89,7 +89,7 @@ def main() -> int:
 
     parsed = 0
     for path in pathlib.Path(args.root).rglob("NativeUfs.cpp"):
-        if "ShengUfs" not in str(path):
+        if not any(name in str(path) for name in ("ShengUfs", "NativeUfs")):
             continue
         text = path.read_text()
         if "native-ufs-window-lba" in text:
@@ -103,7 +103,7 @@ def main() -> int:
 
     layouts = 0
     for path in pathlib.Path(args.root).rglob("RootLayout.h"):
-        if "ShengUfs" not in str(path):
+        if not any(name in str(path) for name in ("ShengUfs", "NativeUfs")):
             continue
         text = path.read_text()
         if "Window mode: the boot argument" in text:

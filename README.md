@@ -23,7 +23,16 @@ changes are candidates until a new device RAM boot records the next screen or
 ramoops line. The USB payload path remains the transport for this revision:
 the pinned Enc3l `bootimg.py` does implement `embed_payload`, but the pinned
 piano UEFI branch has no `PianoPayloadDxe`, so nothing would point `/chosen
-initrd` at the embedded bytes yet. No partition is flashed; the host stages
+initrd` at the embedded bytes yet.
+
+The storage ids in this revision are the local Piano sources (`NativeUfs`,
+`NativeVirtioBlock`, `NativeRamBlock`, `PaganiVerifiedRoot`) rather than the
+official `ShengUfs`/`VirtioMmioBlock`/`RamBlock`/`VerifiedRoot`: the official
+`ShengUfs` does not export the `native_ufs_log_*` entry points that
+`BootProgress`'s `UfsLog.o` calls, and `VirtioMmioBlock` without
+`--verified-root` compiled out the `native_verified_block_*` functions, so the
+kernel link failed. That swap is a build-side candidate; no device boot has
+used it yet. No partition is flashed; the host stages
 `payload.img` with `fastboot stage`/`fastboot oem ramdisk`.
 
 ## Build

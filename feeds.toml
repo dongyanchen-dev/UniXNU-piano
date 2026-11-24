@@ -59,6 +59,26 @@ kind = "driver"
 local = "modules/Piano/drivers/PaganiDarwinBoot"
 
 [[source]]
+name = "NativeUfs"
+kind = "driver"
+local = "modules/Piano/drivers/NativeUfs"
+
+[[source]]
+name = "NativeVirtioBlock"
+kind = "driver"
+local = "modules/Piano/drivers/NativeVirtioBlock"
+
+[[source]]
+name = "NativeRamBlock"
+kind = "driver"
+local = "modules/Piano/drivers/NativeRamBlock"
+
+[[source]]
+name = "PaganiVerifiedRoot"
+kind = "kit"
+local = "modules/Piano/kits/PaganiVerifiedRoot"
+
+[[source]]
 name = "NativeKeyStoreEvents"
 kind = "driver"
 local = "modules/Piano/drivers/NativeKeyStoreEvents"
