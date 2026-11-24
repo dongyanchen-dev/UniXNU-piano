@@ -31,7 +31,22 @@ LOCK_RAW_RE = re.compile(r'(?<!if \(0\) )' + re.escape(LOCKPANIC))
 
 
 def xnu_files(root: pathlib.Path, name: str):
-    return [p for p in root.rglob(name) if "xnu" in str(p).lower()]
+    """Return the compiled copy only, never the untouched fetch cache.
+
+    unixnu fetch leaves a full XNU checkout under out/feeds and patches.py
+    builds from a second clone under <tree>/.cache/xnu-work.  Searching the
+    whole output directory used to validate the feed copy, so --check failed
+    on a correctly patched build tree.
+    """
+    paths = [p for p in root.rglob(name) if "xnu" in p.as_posix().lower()]
+    prepared = [p for p in paths if "/xnu-work/" in p.as_posix()]
+    if prepared:
+        return prepared
+    usable = [p for p in paths if "/out/feeds/" not in p.as_posix()]
+    if paths and not usable:
+        fail(f"{name} exists only in the fetch cache under {root}; "
+             "run unixnu build kernel so .cache/xnu-work is prepared")
+    return usable
 
 
 def fail(message: str) -> "NoReturn":
@@ -69,7 +84,8 @@ def apply_or_check_lock(root: pathlib.Path, check: bool) -> None:
         if check:
             if raw != LOCK_COUNT:
                 fail(f"{path}: --check expects {LOCK_COUNT} original assertions")
-            print(f"  {path}: {raw}/{LOCK_COUNT} lock assertions present; diagnostics patch is active")
+            helper = text.count("lck_rw_non_sleepable_diagnostic")
+            print(f"  {path}: {raw}/{LOCK_COUNT} assertions, {helper} diagnostic reference(s)")
             continue
         if already == LOCK_COUNT:
             print(f"  {path}: already has {LOCK_COUNT}/{LOCK_COUNT} lock no-ops")

@@ -322,7 +322,9 @@ jobs:
             exit 1
           fi
           tail -6 /tmp/s5b.log
-          for f in $(find out -name lock_rw.c); do
+          found=0
+          for f in $(find out -path '*/.cache/xnu-work/*' -name lock_rw.c); do
+            found=1
             n=$(grep -o 'panic("Taking non-sleepable RW lock with preemption enabled");' "$f" | wc -l | tr -d ' ')
             d=$(grep -c 'lck_rw_non_sleepable_diagnostic' "$f" | tr -d ' ')
             echo "::notice::$f assertions=$n diagnostics=$d"
@@ -335,6 +337,7 @@ jobs:
               exit 1
             fi
           done
+          test "$found" -eq 1 || { echo '::error::no prepared .cache/xnu-work lock_rw.c under out'; exit 1; }
       - name: package
         working-directory: UniXNU
         run: |
