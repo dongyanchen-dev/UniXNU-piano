@@ -20,8 +20,8 @@ This tree now carries the owner-root route (`root-unverified=1`), the formal
 XNU patch that preserves `autherr` while accepting that argument, and local
 Piano display/input/A830 component registrations. Those owner-root and driver
 changes are candidates until a new device RAM boot records the next screen or
-ramoops line. The GitHub kernel and package steps link this stack (run
-45338562956); payload and boot image are still unverified.
+ramoops line. The GitHub workflow builds and packages this stack (run 45342205030,
+artifact `piano-ipados-17`, 156 MB); no device boot has used it yet.
 
 `panic_screen` is off in this revision. `BootProgress.c` paints the panic
 message and registers itself, while the Enc3l entry probe refuses the image
