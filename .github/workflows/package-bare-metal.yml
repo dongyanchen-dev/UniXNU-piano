@@ -292,19 +292,47 @@ jobs:
       - name: kernel
         working-directory: UniXNU
         run: |
-          # Root authentication is handled by patches/xnu/zzz-root-unverified.patch.
-          # lock_rw stays fatal and zz-lock-rw-diagnostics.patch records the
-          # caller frames before the assertion; this check must never rewrite
-          # the fetched XNU tree in CI.
-          ./unixnu build kernel -D ../device -j ${{ inputs.jobs || '4' }} > /tmp/s5.log 2>&1 || { echo "::error::s5: $(tail -6 /tmp/s5.log | tr -d '%' | tr '\n' '|' | cut -c1-900)"; echo "::error::diag logs=$(find out -path '*/logs/*.log' -exec basename {} \; | sort -u | tr '\n' ',' | cut -c1-500) rec=$(find out -name startup.o.json | head -1 | cut -c1-120)"; echo "::error::kernel failed: $(tail -3 /tmp/s5.log | tr -d '%' | tr '\n' '|' | cut -c1-600)"; exit 1; }
-          python3 ../device/scripts/prepare-xnu-root-auth.py --check out
+          set +e
+          ./unixnu build kernel -D ../device -j ${{ inputs.jobs || '4' }} > /tmp/s5.log 2>&1
+          rc=$?
+          if [ $rc -ne 0 ]; then
+            {
+              echo '### kernel build failed'
+              echo "exit=$rc"
+              echo '```'
+              tail -120 /tmp/s5.log | tr -d '\r'
+              echo '```'
+              echo '### error lines'
+              echo '```'
+              grep -nE 'error:|Error [0-9]|Undefined symbols|undefined reference|No such file|not found|fatal' /tmp/s5.log | tail -40 | tr -d '\r'
+              echo '```'
+              echo '### log inventory'
+              echo '```'
+              find out -path '*/logs/*.log' -type f -exec ls -l {} \; 2>/dev/null | awk '{print $5, $9}' | head -40
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY" 2>/dev/null
+            msg=$(grep -nE 'error:|Error [0-9]|Undefined symbols|undefined reference|No such file|not found|fatal' /tmp/s5.log | tail -3 | tr -d '%\r' | tr '\n' '|' | cut -c1-900)
+            echo "::error::s5 exit=$rc: $msg"
+            exit 1
+          fi
+          set -e
+          if ! python3 ../device/scripts/prepare-xnu-root-auth.py --check out > /tmp/s5b.log 2>&1; then
+            echo "::error::root-auth check failed: $(tail -4 /tmp/s5b.log | tr '\n' '|' | cut -c1-900)"
+            { echo '### root-auth check failed'; echo '```'; tail -40 /tmp/s5b.log; echo '```'; } >> "$GITHUB_STEP_SUMMARY" 2>/dev/null
+            exit 1
+          fi
+          tail -6 /tmp/s5b.log
           for f in $(find out -name lock_rw.c); do
             n=$(grep -o 'panic("Taking non-sleepable RW lock with preemption enabled");' "$f" | wc -l | tr -d ' ')
-            test "$n" -eq 5 || { echo "expected 5 lock assertions in $f, found $n"; exit 1; }
             d=$(grep -c 'lck_rw_non_sleepable_diagnostic' "$f" | tr -d ' ')
-            test "$d" -eq 6 || { echo "expected the diagnostic helper plus 5 call sites in $f, found $d"; exit 1; }
+            echo "::notice::$f assertions=$n diagnostics=$d"
+            if [ "$n" -ne 5 ] || [ "$d" -ne 6 ]; then
+              echo "::error::$f expected 5 assertions and 6 diagnostic references, found $n and $d"
+              exit 1
+            fi
             if grep -q 'if (0) panic("Taking non-sleepable RW lock' "$f"; then
-              echo "lock assertions in $f were short-circuited; use the formal patch instead"; exit 1
+              echo "::error::$f short-circuits a lock assertion; use patches/xnu/series"
+              exit 1
             fi
           done
       - name: package
@@ -342,6 +370,25 @@ jobs:
           tar czf out/logs.tar.gz UniXNU/out/piano/*/*/logs 2>/dev/null || true
           cat /tmp/s*.log > out/build.log 2>/dev/null || true
           ls -l out
+      - name: failure summary
+        if: failure()
+        run: |
+          set +e
+          {
+            echo '## failure'
+            for f in /tmp/s5.log /tmp/s5b.log /tmp/s4b.log /tmp/s4.log; do
+              [ -f "$f" ] || continue
+              echo "### $f"
+              echo '```'
+              tail -60 "$f" | tr -d '\r'
+              echo '```'
+            done
+            echo '### log inventory'
+            echo '```'
+            find UniXNU/out -path '*/logs/*.log' -type f -exec ls -l {} \; 2>/dev/null | awk '{print $5, $9}' | head -30
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY" 2>/dev/null
+          true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
