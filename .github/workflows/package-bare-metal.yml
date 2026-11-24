@@ -190,9 +190,16 @@ jobs:
           # roles with a neighbour, so a copy-paste port enables the wrong
           # clocks. NativeUfs.cpp reads them by name, so this is the whole port.
           python3 ../device/scripts/prepare-shengufs-gcc.py out
+          # NativeUfs ships GccUfs.h as a bare include of <Sm8750Platform/GccUfs.h>,
+          # so only the platform kit copy carries the offsets; require one such copy
+          # instead of every file matching.
+          gate=0
           for h in $(find out -name GccUfs.h); do
-            grep -n 'GCC_UFS_PHY_AHB_ENABLE\|GCC_UFS_PHY_TX_SYMBOL0_ENABLE\|GCC_UFS_PHY_RX_SYMBOL0_ENABLE' "$h" | head -3
+            if grep -n 'GCC_UFS_PHY_AHB_ENABLE\|GCC_UFS_PHY_TX_SYMBOL0_ENABLE\|GCC_UFS_PHY_RX_SYMBOL0_ENABLE' "$h" | head -3; then
+              gate=$((gate + 1))
+            fi
           done
+          test "$gate" -ge 1 || { echo 'no GccUfs.h carries the SM8750 UFS gate offsets'; exit 1; }
           # Use upstream's SM8750 planner (0x100000 window, SM8750 usable rule)
           # instead of the SM8550 copy ShengUfs ships, then adapt the takeover
           # to this board's handoff state.
