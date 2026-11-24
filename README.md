@@ -28,7 +28,11 @@ is the first green build with the USB console: the kernel step now asserts that
 the linked `mach.development.bcm2837.unstripped.noctf` defines
 `piano_usb_console_start`, and it reported `assertions=5 diagnostics=6` for the
 prepared `lock_rw.c`. Run `45342205030` uploaded the 156 MB `piano-ipados-17`
-artifact. No device boot has used either image yet.
+artifact, and run `45399823289` (commit `6a1dde2`) adds `initproc-no-panic` and
+the SystemOS volume retry and uploaded `piano-ipados-17` again (artifact
+`14924936205`, 163,584,503 bytes,
+`sha256:6972c11fd5df2a529b3ba6a315a9136ed5cbd3a19343f134a614df34ce0d0a30`). No
+device boot has used any of these images yet.
 
 `panic_screen` is off in this revision. `BootProgress.c` paints the panic
 message and registers itself, while the Enc3l entry probe refuses the image
