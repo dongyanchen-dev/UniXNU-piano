@@ -83,7 +83,7 @@ panic_screen = false
 title = "Xiaomi Pad 8 Pro: XNU first boot"
 dram_size = "0x180000000"
 timeout = 600
-kernel_args = ["-v", "serial=0", "debug=0x14e", "cpus=1", "kt_fixed_zones=240", "sheng-pmgr=2", "-no_corpses", "offline-legacy-gop=1", "pagani-platform-status=1", "native-legacy-display=1", "native-adreno=1", "native-ufs-root=1", "native-ufs-window-lba=55778816", "native-ufs-window-blocks=2290688", "root-unverified=1", "disable-watchdogd=1", "log=1"]
+kernel_args = ["-v", "serial=0", "debug=0x14e", "cpus=1", "kt_fixed_zones=240", "sheng-pmgr=2", "-no_corpses", "offline-legacy-gop=1", "pagani-platform-status=1", "native-legacy-display=1", "native-adreno=1", "native-ufs-root=1", "native-ufs-window-lba=55778816", "native-ufs-window-blocks=2290688", "root-unverified=1", "disable-watchdogd=1", "initproc-no-panic=1", "log=1"]
 trust_cache_sha256 = ["7416ca4f8377146626bb284e2133c76bee6cb4e3ee0af5d648b186235a7323a7", "b00fe9d2ab01cf62690d44a24bf0febc136b97574ce7e4e854a8c02afd8893cf"]
 
 [payload.adt]
@@ -143,6 +143,9 @@ display-rotation = 0
 
 [adt.defaults.u32]
 sleep-disabled = 1
+# CONFIG_VNODES clips desiredvnodes to 1024 and the iPadOS desktop keeps about
+# 2000 live, so vnode jetsam kills daemons. XNU reads this before clipping.
+"kern.maxvnodes" = 66560
 
 [adt.product.string]
 model = "piano"
