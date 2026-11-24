@@ -31,7 +31,7 @@ CONFIG_XNU_OWNER_UNION_SYSTEMOS=y
 CONFIG_XNU_NATIVE_ADRENO=y
 CONFIG_XNU_NATIVE_LEGACY_DISPLAY=y
 CONFIG_XNU_NATIVE_ADRENO_ARCHIVE="{tree}/build/adreno830/libAdreno830.a"
-# CONFIG_XNU_BOOT_PROGRESS is not set
+CONFIG_XNU_BOOT_PROGRESS=y
 CONFIG_XNU_EARLY_BOOT_PROGRESS=y
 
 # Use the retained community archive names; official components keep their own defaults.

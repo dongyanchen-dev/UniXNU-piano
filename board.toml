@@ -42,6 +42,7 @@ archives = [
   # Local Piano/Pagani drivers registered in feeds.toml.
   "component:Stage7Probe",
   "component:NativeMobileDisplay",
+  "build-boot-progress.py",
   "component:PaganiInput",
   "component:PaganiPanel",
   "component:Adreno830",
