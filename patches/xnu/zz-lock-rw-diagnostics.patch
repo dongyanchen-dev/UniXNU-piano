@@ -1,0 +1,73 @@
+--- a/osfmk/kern/lock_rw.c
++++ b/osfmk/kern/lock_rw.c
+@@ -63,10 +63,30 @@
+ #include <kern/processor.h>
+ #include <kern/sched_prim.h>
+ #include <kern/debug.h>
++#include <kern/backtrace.h>
+ #include <machine/atomic.h>
+ #include <machine/machine_cpu.h>
+ 
+ KALLOC_TYPE_DEFINE(KT_LCK_RW, lck_rw_t, KT_PRIV_ACCT);
++
++/* Bring-up diagnostic: preserve the assertion, but leave the caller frames in
++ * the panic log before the assertion terminates the boot. */
++static void
++lck_rw_non_sleepable_diagnostic(const char *function, unsigned line)
++{
++	uintptr_t bt[8] = {0};
++	backtrace_info_t info = BTI_NONE;
++	unsigned int count = backtrace(bt, 8, NULL, &info);
++	panic("Taking non-sleepable RW lock at %s:%u\n"
++	    "BT count=%u flags=%x\n"
++	    "0=%016lx 1=%016lx 2=%016lx 3=%016lx\n"
++	    "4=%016lx 5=%016lx 6=%016lx 7=%016lx",
++	    function, line, count, (unsigned int)info,
++	    (unsigned long)bt[0], (unsigned long)bt[1],
++	    (unsigned long)bt[2], (unsigned long)bt[3],
++	    (unsigned long)bt[4], (unsigned long)bt[5],
++	    (unsigned long)bt[6], (unsigned long)bt[7]);
++}
+ 
+ #define LCK_RW_WRITER_EVENT(lck)                (event_t)((uintptr_t)(lck)+1)
+ #define LCK_RW_READER_EVENT(lck)                (event_t)((uintptr_t)(lck)+2)
+@@ -1124,6 +1144,7 @@
+ 	if (lock->lck_rw_can_sleep) {
+ 		lck_rw_lock_count_inc(thread, lock);
+ 	} else if (get_preemption_level() == 0) {
++		lck_rw_non_sleepable_diagnostic(__func__, __LINE__);
+ 		panic("Taking non-sleepable RW lock with preemption enabled");
+ 	}
+ 
+@@ -1158,6 +1179,7 @@
+ 	if (lock->lck_rw_can_sleep) {
+ 		lck_rw_lock_count_inc(thread, lock);
+ 	} else if (get_preemption_level() == 0) {
++		lck_rw_non_sleepable_diagnostic(__func__, __LINE__);
+ 		panic("Taking non-sleepable RW lock with preemption enabled");
+ 	}
+ 
+@@ -1397,6 +1419,7 @@
+ 	if (lock->lck_rw_can_sleep) {
+ 		lck_rw_lock_count_inc(thread, lock);
+ 	} else if (get_preemption_level() == 0) {
++		lck_rw_non_sleepable_diagnostic(__func__, __LINE__);
+ 		panic("Taking non-sleepable RW lock with preemption enabled");
+ 	}
+ 
+@@ -1944,6 +1967,7 @@
+ 	if (lock->lck_rw_can_sleep) {
+ 		lck_rw_lock_count_inc(thread, lock);
+ 	} else if (get_preemption_level() == 0) {
++		lck_rw_non_sleepable_diagnostic(__func__, __LINE__);
+ 		panic("Taking non-sleepable RW lock with preemption enabled");
+ 	}
+ 
+@@ -2018,6 +2042,7 @@
+ 	if (lock->lck_rw_can_sleep) {
+ 		lck_rw_lock_count_inc(thread, lock);
+ 	} else if (get_preemption_level() == 0) {
++		lck_rw_non_sleepable_diagnostic(__func__, __LINE__);
+ 		panic("Taking non-sleepable RW lock with preemption enabled");
+ 	}
+ 

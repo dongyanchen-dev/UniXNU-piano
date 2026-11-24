@@ -6,7 +6,7 @@ soc = "SM8750"
 soc_source = "sm8750"
 os_profile = "ipados-17.7.11-21H461"
 description = "Xiaomi Pad 8 Pro: first XNU boot from RAM (OnePlus 13T base)"
-kit = "piano"
+kit = "oneplus13t"
 
 [ipsw]
 fetch = ["AppleLogo", "KernelCache", "DeviceTree", "StaticTrustCache", "Cryptex1,SystemTrustCache", "OS", "Cryptex1,SystemOS"]
@@ -15,7 +15,7 @@ fetch = ["AppleLogo", "KernelCache", "DeviceTree", "StaticTrustCache", "Cryptex1
 "applelogo@2732~ipad.im4p" = "de55e7b7a4eff459118f8a4ec9af79b017cfdbfec4c5b079346e414c68ff1fba"
 
 [components]
-include = ["ArmCpu", "ArmDTPlatform", "DarwinBoot", "XnuPrelink", "RamBlock", "VirtioMmioBlock", "SoftwareAES", "AppleKeyStoreState", "ShengUfs", "GopFramebuffer", "VerifiedRoot"]
+include = ["ArmCpu", "ArmDTPlatform", "DarwinBoot", "XnuPrelink", "NativeRamBlock", "NativeVirtioBlock", "SoftwareAES", "AppleKeyStoreState", "NativeUfs", "GopFramebuffer", "PaganiVerifiedRoot", "ShengPlatformPower", "PaganiInput", "PaganiPanel", "Stage7Probe", "NativeMobileDisplay", "Adreno830", "AdrenoMetal", "AdrenoFirmware", "PaganiDarwinBoot", "QcomGeniSpi"]
 
 [kernel]
 config_fragments = ["arch:configs/common.config", "soc:configs/sm8750.config", "os:configs/ipados.config"]
@@ -29,16 +29,24 @@ archives = [
   "component:ArmCpu",
   "component:SoftwareAES",
   "build-software-aes-bindings.py",
-  "component:ShengUfs",
-  "build-ufs-storage-bindings.py --kernelcache ../../../../ipsw/21H461/kernelcache.decompressed --component ShengUfs",
-  "component:VirtioMmioBlock",
-  "build-ufs-storage-bindings.py --kernelcache ../../../../ipsw/21H461/kernelcache.decompressed --component VirtioMmioBlock",
-  "component:RamBlock",
-  "build-ufs-storage-bindings.py --kernelcache ../../../../ipsw/21H461/kernelcache.decompressed --component RamBlock",
-  "build-verified-root-probe.py --component os --include-systemos",
-  "build-sheng-platform-power.py",
+  "component:NativeUfs",
+  # The binder writes NativeUfs' qualified original storage bindings; the
+  # transport and RAM aliases reuse it instead of rebinding the same class.
+  "build-ufs-storage-bindings.py --kernelcache ../../../../ipsw/21H461/kernelcache.decompressed",
+  "component:NativeVirtioBlock",
+  "component:NativeRamBlock",
+  "build-pagani-verified-root-probe.py --component os --include-systemos",
+  "component:ShengPlatformPower",
   "component:GopFramebuffer",
-  "component:AppleKeyStoreState"
+  "component:AppleKeyStoreState",
+  # Local Piano/Pagani drivers registered in feeds.toml.
+  "component:Stage7Probe",
+  "component:NativeMobileDisplay",
+  "build-boot-progress.py",
+  "component:PaganiInput",
+  "component:PaganiPanel",
+  "component:Adreno830",
+  "build-piano-gpu.py --no-firmware"
 ]
 
 [kernel.prelink]
@@ -62,12 +70,21 @@ skip_setup_args = ["--no-auto-dim"]
 volume = "UNIXNUPIANO"
 size_mib = 160
 loader = "firmware"
-panic_screen = true
+# BootProgress.c paints the panic message, the last and root stages and the
+# fault registers itself, fed by zzzz-boot-progress-panic-output.patch and
+# zzzzz-root-panic-progress.patch.  The Enc3l entry probe's separate panic
+# screen is off: patch-xnu-entry-probe.py pins the SCTLR/ISB/CPACR sequence at
+# a fixed offset from _start_first_cpu, and this kernel's early progress and
+# bootstrap-table patches move it, so the tool refuses the image with
+# "Require one verified SCTLR/ISB/CPACR entry sequence".  That gate also
+# covers the stage-1/2 bars; BootProgress still reports from arm_init on.
+# Re-enable once the probe learns the new sequence.
+panic_screen = false
 title = "Xiaomi Pad 8 Pro: XNU first boot"
 dram_size = "0x180000000"
 timeout = 600
-kernel_args = ["-v", "serial=0", "debug=0x14e", "cpus=1", "kt_fixed_zones=240", "sheng-pmgr=2", "-no_corpses", "offline-legacy-gop=1", "pagani-platform-status=1", "native-ufs-root=1", "native-ufs-window-lba=55778816", "native-ufs-window-blocks=2290688", "disable-watchdogd=1", "log=1"]
-trust_cache_sha256 = ["7416ca4f8377146626bb284e2133c76bee6cb4e3ee0af5d648b186235a7323a7"]
+kernel_args = ["-v", "serial=0", "debug=0x14e", "cpus=1", "kt_fixed_zones=240", "sheng-pmgr=2", "-no_corpses", "offline-legacy-gop=1", "pagani-platform-status=1", "native-legacy-display=1", "native-adreno=1", "native-ufs-root=1", "native-ufs-window-lba=55778816", "native-ufs-window-blocks=2290688", "root-unverified=1", "disable-watchdogd=1", "initproc-no-panic=1", "log=1"]
+trust_cache_sha256 = ["7416ca4f8377146626bb284e2133c76bee6cb4e3ee0af5d648b186235a7323a7", "b00fe9d2ab01cf62690d44a24bf0febc136b97574ce7e4e854a8c02afd8893cf"]
 
 [payload.adt]
 ipad_identity = true
@@ -79,37 +96,20 @@ owned_memory_size = "0x100000000"
 root_match_volume_uuid = "04769D26-2CA0-4825-B443-E2E5F88300F2"
 
 [bootimg]
-# boot.img carries only the UEFI firmware and the device tree: the payload is
-# 160 MiB and a vendor ABL refuses a ramdisk that large. The payload travels
-# over USB instead (fastboot stage + oem ramdisk), so the bootimg step is
-# invoked with --ramdisk none (the key below is not a board option; bootimg
-# only reads the command line). See .github/workflows/package-bare-metal.yml.
+# RAM-only boot: boot.img contains UEFI + DTB. The 160 MiB payload is staged
+# over USB by the current Piano firmware; no unixnu partition is read or written.
+# The live storage reader uses [payload] native-ufs-window-lba/blocks below.
 
-# The UFS-root plan below is not active yet: the device has no unixnu
-# partition, and both ranges overlap [userdata]. Keep them as the target
-# layout for the ramblock/UFS route, not as working configuration.
-
-# uefi/piano.toml [boot_image_kernel] asks for an uncompressed kernel field;
-# UniXNU reads the same choice from here (its default is gzip).
-partition = "unixnu"
-first_lba = 44928768
-last_lba = 61705983
-lba_bytes = 4096
-windows = [
-  { name = "OS", component = "OS" },
-  { name = "SystemOS", component = "Cryptex1,SystemOS" },
-]
-
-# uefi/piano.toml [boot_image_kernel] asks for an uncompressed kernel field;
-# UniXNU reads the same choice from here (its default is gzip).
 [bootimg.image]
 kernel_compression = "none"
 
 [userdata]
-first_lba = 44928768
-last_lba = 61705983
+# GPT entry 35, the read-only iPadOS window used by ShengUfs. These are device
+# facts, not a partition to flash: RAM boot only reads this range.
+partition = "ipados"
+first_lba = 55778816
+last_lba = 58069503
 lba_bytes = 4096
-
 [firmware]
 # The board UEFI (Mu-Silicium based, after its tools/setup-deps.sh):
 # --uefi points at its deps/Mu-Silicium.
@@ -143,6 +143,9 @@ display-rotation = 0
 
 [adt.defaults.u32]
 sleep-disabled = 1
+# CONFIG_VNODES clips desiredvnodes to 1024 and the iPadOS desktop keeps about
+# 2000 live, so vnode jetsam kills daemons. XNU reads this before clipping.
+"kern.maxvnodes" = 66560
 
 [adt.product.string]
 model = "piano"

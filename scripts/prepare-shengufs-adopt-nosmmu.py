@@ -38,7 +38,7 @@ def main() -> int:
 
     patched = 0
     for path in pathlib.Path(args.root).rglob("NativeUfs.cpp"):
-        if "ShengUfs" not in str(path):
+        if not any(name in str(path) for name in ("ShengUfs", "NativeUfs")):
             continue
         text = path.read_text()
         if "left exactly as the firmware left it" in text:

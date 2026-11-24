@@ -28,7 +28,7 @@ def main() -> int:
     args = parser.parse_args()
     patched = 0
     for path in pathlib.Path(args.root).rglob("SmmuTakeover.h"):
-        if "ShengUfs" not in str(path):
+        if not any(name in str(path) for name in ("ShengUfs", "NativeUfs")):
             continue
         text = path.read_text()
         if "(2U << 16)" in text:

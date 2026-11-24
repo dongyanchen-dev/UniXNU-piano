@@ -71,7 +71,7 @@ def main() -> int:
     vendor = VENDOR.read_text()
     headers = 0
     for path in root.rglob("SmmuTakeover.h"):
-        if "ShengUfs" not in str(path):
+        if not any(name in str(path) for name in ("ShengUfs", "NativeUfs")):
             continue
         text = DEFINE + vendor
         if USABLE_OLD not in text or WRITE_OLD not in text:
@@ -84,7 +84,7 @@ def main() -> int:
 
     sources = 0
     for path in root.rglob("NativeUfs.cpp"):
-        if "ShengUfs" not in str(path):
+        if not any(name in str(path) for name in ("ShengUfs", "NativeUfs")):
             continue
         text = path.read_text()
         before = text
