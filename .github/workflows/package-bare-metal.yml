@@ -189,12 +189,27 @@ jobs:
           # GCC offsets in GccUfs.h; eight of them move on SM8750, and two swap
           # roles with a neighbour, so a copy-paste port enables the wrong
           # clocks. NativeUfs.cpp reads them by name, so this is the whole port.
-          python3 ../device/scripts/prepare-shengufs-gcc.py out
+          # The tree links each driver directory; Python 3.13 rglob does not
+          # descend into those symlinks, so patch the module source the tree
+          # resolves to and report each script's own failure line.
+          UFS=../device/modules/Piano
+          ufs() {
+            name=$1; shift
+            if python3 "$@" > "/tmp/ufs-$name.log" 2>&1; then
+              { grep -v '^$' "/tmp/ufs-$name.log" || true; } | tail -3 | sed 's/^/::notice::/'
+            else
+              rc=$?
+              echo "::error::ufs clocks: $name failed rc=$rc"
+              tail -15 "/tmp/ufs-$name.log" | sed 's/^/::error::/'
+              exit 1
+            fi
+          }
+          ufs gcc ../device/scripts/prepare-shengufs-gcc.py "$UFS"
           # NativeUfs ships GccUfs.h as a bare include of <Sm8750Platform/GccUfs.h>,
           # so only the platform kit copy carries the offsets; require one such copy
           # instead of every file matching.
           gate=0
-          for h in $(find out -name GccUfs.h); do
+          for h in $(find -L out "$UFS" -name GccUfs.h); do
             if grep -n 'GCC_UFS_PHY_AHB_ENABLE\|GCC_UFS_PHY_TX_SYMBOL0_ENABLE\|GCC_UFS_PHY_RX_SYMBOL0_ENABLE' "$h" | head -3; then
               gate=$((gate + 1))
             fi
@@ -203,11 +218,11 @@ jobs:
           # Use upstream's SM8750 planner (0x100000 window, SM8750 usable rule)
           # instead of the SM8550 copy ShengUfs ships, then adapt the takeover
           # to this board's handoff state.
-          python3 ../device/scripts/prepare-shengufs-smmu-upstream.py out
+          ufs smmu-upstream ../device/scripts/prepare-shengufs-smmu-upstream.py "$UFS"
           # Window mode: let the root manifest live in any contiguous block run
           # (native-ufs-window-lba/-blocks), so the iPadOS image can sit in a
           # pinned file inside /data instead of overwriting the partition start.
-          python3 ../device/scripts/prepare-shengufs-root-window.py out
+          ufs root-window ../device/scripts/prepare-shengufs-root-window.py "$UFS"
           # The generic BSD panic names neither the stage nor the manifest fact,
           # so a failed root layout is unreadable on a board without serial.
           # Turn each root failure into a panic that prints both.
@@ -220,16 +235,16 @@ jobs:
           # python3 ../device/scripts/prepare-shengufs-host-reset.py out
           # Leave the SMMU untouched and send the first command from the firmware's
           # own request list: writing S2CR resets this SoC even in bypass.
-          python3 ../device/scripts/prepare-shengufs-adopt-nosmmu.py out
+          ufs adopt-nosmmu ../device/scripts/prepare-shengufs-adopt-nosmmu.py "$UFS"
           # The queue takeover prints what the controller did with the list base
           # and the run-stop bit; HCE cannot be cycled before it, because
           # hostStopQueue refuses to run when HCE is clear.
-          python3 ../device/scripts/prepare-shengufs-mcq-legacy.py out
-          python3 ../device/scripts/prepare-shengufs-queue-print.py out
-          python3 ../device/scripts/prepare-shengufs-pmc-reset.py out
+          ufs mcq-legacy ../device/scripts/prepare-shengufs-mcq-legacy.py "$UFS"
+          ufs queue-print ../device/scripts/prepare-shengufs-queue-print.py "$UFS"
+          ufs pmc-reset ../device/scripts/prepare-shengufs-pmc-reset.py "$UFS"
           # The kernel writes its bring-up stage to a fixed RAM page before each UFS
           # step; the firmware patch above reports it on the next boot.
-          python3 ../device/scripts/prepare-shengufs-deathlog.py out
+          ufs deathlog ../device/scripts/prepare-shengufs-deathlog.py "$UFS"
           # The device answered this probe: slot=1 bank=82 s2cr=00000052 sctlr=0.
           # Firmware detach left the stream on a translation bank whose SCTLR is
           # clear, so nothing the controller fetches can be translated. Put the
@@ -237,27 +252,27 @@ jobs:
           # above 4 GiB, which a stage-2 table this driver does not own cannot map.
           # Firmware already put the stream in bypass; the kernel performs no
           # SMMU store at all and only reads the entry back.
-          python3 ../device/scripts/prepare-shengufs-smmu-readonly.py out
+          ufs smmu-readonly ../device/scripts/prepare-shengufs-smmu-readonly.py "$UFS"
           # The device asks for a power mode change (UPMCRS) and the UTP does
           # not process commands until the host completes it.
-          python3 ../device/scripts/prepare-shengufs-power-mode.py out
-          python3 ../device/scripts/prepare-shengufs-root-debug.py out
+          ufs power-mode ../device/scripts/prepare-shengufs-power-mode.py "$UFS"
+          ufs root-debug ../device/scripts/prepare-shengufs-root-debug.py "$UFS"
           # The firmware powers the UFS PHY down on hand-over: the link arrives
           # at Gear 0 with zero lanes and every command times out. Bring both
           # GDSCs up and carry their values in the panic (this runs after
           # power-mode, whose panic line it extends).
-          python3 ../device/scripts/prepare-shengufs-phy-power.py out
+          ufs phy-power ../device/scripts/prepare-shengufs-phy-power.py "$UFS"
           # The device arrives in UFS-PowerDown and every LU answers NOT
           # READY; the START STOP UNIT that wakes it was gated on level 5/9.
-          python3 ../device/scripts/prepare-shengufs-wake-device.py out
-          for h in $(find out -name NativeUfs.cpp); do
+          ufs wake-device ../device/scripts/prepare-shengufs-wake-device.py "$UFS"
+          for h in $(find -L out "$UFS" -name NativeUfs.cpp); do
             grep -n 'level == 4 || level == 5 || level == 9' "$h" | head -1
           done
-          for h in $(find out -name NativeUfs.cpp); do
+          for h in $(find -L out "$UFS" -name NativeUfs.cpp); do
             grep -n 'gdsc=%08x phygdsc=%08x' "$h" | head -1
           done
           found=0
-          for h in $(find out \( -path '*ShengUfs*' -o -path '*NativeUfs*' \) -name SmmuTakeover.h); do
+          for h in $(find -L out "$UFS" \( -path '*ShengUfs*' -o -path '*NativeUfs*' \) -name SmmuTakeover.h); do
             found=1
             grep -n 'kUfsSmmuMapBytes = 0x100000' "$h" | head -2
             grep -n 'mask == 0' "$h" | head -2
