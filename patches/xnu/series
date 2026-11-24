@@ -33,3 +33,4 @@ phone-vm-page-limits.patch
 
 zzz-root-unverified.patch
 zz-lock-rw-diagnostics.patch
+piano-usb-console.patch

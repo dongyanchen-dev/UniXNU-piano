@@ -1,0 +1,16 @@
+--- a/bsd/kern/bsd_init.c
++++ b/bsd/kern/bsd_init.c
+@@ -780,6 +780,12 @@
+ 	boot_progress_stage("original PMGR nub start");
+ 	sheng_pmgr_run();
+ 	boot_progress_stage("original PMGR nub returned");
+ #endif
++	{
++		/* Bring-up: USB serial console (scripts/PianoUsbConsole.c). Its CDC-ACM
++		 * port copies the msgbuf to the host while a terminal holds it open. */
++		extern void piano_usb_console_start(void);
++		piano_usb_console_start();
++	}
+ 
+ 	/*
+ 	 * Initialize the calendar.
